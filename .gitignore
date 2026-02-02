@@ -1,0 +1,56 @@
+# Environment (secrets)
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data (local)
+data/
+
+# Dagster
+.dagster/
+storage/
+
+# Iceberg catalog (runtime)
+.iceberg/
+workspaces/**/.iceberg/
+
+# OS
+.DS_Store
+
+# ============================================
+# User workspaces (personal data)
+# ============================================
+
+# Notebooks in workspaces (except examples)
+workspaces/*/notebooks/*.ipynb
+!workspaces/*/notebooks/01_getting_started.ipynb
+
+# Data files (never commit)
+*.xlsx
+*.xls
+*.csv
+!requirements*.txt
+
+# Keep directory structure
+!workspaces/*/notebooks/.gitkeep
+!workspaces/*/pipelines/.gitkeep

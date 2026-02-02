@@ -1,0 +1,12 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    user: root
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
+    working_dir: /workspace/ratatouille
+    env_file:
+      - ../.env

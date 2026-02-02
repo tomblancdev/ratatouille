@@ -1,0 +1,23 @@
+{
+  "@jupyterlab/apputils-extension:themes": {
+    "theme": "JupyterLab Dark"
+  },
+  "@jupyterlab/notebook-extension:tracker": {
+    "codeCellConfig": {
+      "lineNumbers": true,
+      "lineWrap": "off"
+    },
+    "markdownCellConfig": {
+      "lineNumbers": false
+    }
+  },
+  "@jupyterlab/codemirror-extension:plugin": {
+    "defaultConfig": {
+      "lineNumbers": true,
+      "indentUnit": "4"
+    }
+  },
+  "@jupyterlab/lsp-extension:plugin": {
+    "continuousHinting": true
+  }
+}

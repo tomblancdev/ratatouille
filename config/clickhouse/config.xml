@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- 🐀 Ratatouille ClickHouse S3 Configuration -->
+<clickhouse>
+    <!-- S3 storage configuration for MinIO -->
+    <s3>
+        <endpoint>http://minio:9000/</endpoint>
+        <access_key_id>ratatouille</access_key_id>
+        <secret_access_key>ratatouille123</secret_access_key>
+        <use_environment_credentials>false</use_environment_credentials>
+    </s3>
+
+    <!-- Named collections for easy S3 access -->
+    <named_collections>
+        <minio>
+            <url>http://minio:9000/</url>
+            <access_key_id>ratatouille</access_key_id>
+            <secret_access_key>ratatouille123</secret_access_key>
+        </minio>
+    </named_collections>
+</clickhouse>
