@@ -246,11 +246,10 @@ def _create_sql_asset(
     owner = config.get("owner", parsed.owner)
     columns = config.get("columns", [])
 
-    # Create the asset
+    # Create the asset (use key only, not name)
     @asset(
-        name=f"{workspace_name}__{layer}_{asset_name}",
         key=asset_key,
-        ins=deps,
+        ins=deps if deps else None,
         description=description,
         owners=[owner] if owner else None,
         metadata={

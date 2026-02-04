@@ -50,6 +50,8 @@ from ratatouille.tools.workspace import (
     products,
     current_workspace,
     switch_workspace,
+    env,
+    connections,
 )
 
 __all__ = [
@@ -75,4 +77,6 @@ __all__ = [
     "products",
     "current_workspace",
     "switch_workspace",
+    "env",
+    "connections",
 ]

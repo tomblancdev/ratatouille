@@ -56,7 +56,8 @@ services:
         mc mb --ignore-existing minio/warehouse
         mc mb --ignore-existing minio/products
         mc mb --ignore-existing minio/landing
-        echo "✅ Buckets created: warehouse, products, landing"
+        mc mb --ignore-existing minio/ratatouille-demo
+        echo "✅ Buckets created: warehouse, products, landing, ratatouille-demo"
 
   # ═══════════════════════════════════════════════════════════════════════
   # Catalog: Nessie (Git-like versioning for Iceberg)
@@ -94,15 +95,21 @@ services:
       dockerfile: Dockerfile
     container_name: ratatouille-dagster
     environment:
-      # S3/MinIO
+      # S3/MinIO (both naming conventions for compatibility)
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-ratatouille}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-ratatouille123}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-ratatouille}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-ratatouille123}
       # Nessie catalog
       NESSIE_URI: http://nessie:19120/api/v2
       NESSIE_DEFAULT_BRANCH: main
       # Iceberg
       ICEBERG_WAREHOUSE: s3://warehouse/
+      # Workspace
+      RATATOUILLE_WORKSPACE: demo
+      RATATOUILLE_WORKSPACES_DIR: /app/workspaces
       # Resource profile
       RAT_PROFILE: ${RAT_PROFILE:-small}
       # Dagster
@@ -134,15 +141,21 @@ services:
       dockerfile: Dockerfile
     container_name: ratatouille-jupyter
     environment:
-      # S3/MinIO
+      # S3/MinIO (both naming conventions for compatibility)
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-ratatouille}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-ratatouille123}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-ratatouille}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-ratatouille123}
       # Nessie catalog
       NESSIE_URI: http://nessie:19120/api/v2
       NESSIE_DEFAULT_BRANCH: main
       # Iceberg
       ICEBERG_WAREHOUSE: s3://warehouse/
+      # Workspace
+      RATATOUILLE_WORKSPACE: demo
+      RATATOUILLE_WORKSPACES_DIR: /app/workspaces
       # Resource profile
       RAT_PROFILE: ${RAT_PROFILE:-small}
       # Jupyter

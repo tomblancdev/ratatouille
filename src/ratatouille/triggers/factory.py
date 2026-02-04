@@ -91,7 +91,7 @@ def create_triggers_from_yaml(
             sched = _create_schedule_trigger(
                 trigger, workspace, pipeline_name, target_asset
             )
-            if sched:
+            if sched is not None:
                 schedules.append(sched)
 
         elif trigger_type == "freshness":
@@ -100,18 +100,8 @@ def create_triggers_from_yaml(
                 sched = _create_freshness_trigger(
                     freshness, workspace, pipeline_name, target_asset
                 )
-                if sched:
+                if sched is not None:
                     schedules.append(sched)
-
-    # Auto-create freshness schedule if freshness is defined but no explicit trigger
-    if freshness and not any(t.get("type") == "freshness" for t in triggers):
-        # Only if no schedule exists
-        if not schedules:
-            sched = _create_freshness_trigger(
-                freshness, workspace, pipeline_name, target_asset
-            )
-            if sched:
-                schedules.append(sched)
 
     return TriggerBundle(sensors=sensors, schedules=schedules)
 
