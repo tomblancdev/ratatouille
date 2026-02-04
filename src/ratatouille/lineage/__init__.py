@@ -1,17 +1,19 @@
 """🔗 Lineage Tracking - Data flow visibility.
 
-Tracks:
-- Source → Target relationships
-- Transform metadata (rows in/out, duration)
-- Pipeline execution history
-- Impact analysis (what depends on what)
+TODO: Implement lineage tracking.
+
+Planned features:
+- LineageTracker: Record source → target relationships
+- LineageGraph: Query and visualize data flow
+- Impact analysis: What depends on what?
+
+For now, dependencies are tracked via:
+- {{ ref('table') }} calls in SQL pipelines
+- Pipeline DAG in loader.py
 """
 
-from .tracker import LineageTracker, record_transform
-from .graph import LineageGraph
+# TODO: Implement when needed
+# from .tracker import LineageTracker, record_transform
+# from .graph import LineageGraph
 
-__all__ = [
-    "LineageTracker",
-    "LineageGraph",
-    "record_transform",
-]
+__all__: list[str] = []

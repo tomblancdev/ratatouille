@@ -1,1 +1,0 @@
-"""🐀 Pipeline definitions for Ratatouille."""

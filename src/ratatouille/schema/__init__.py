@@ -1,20 +1,19 @@
 """📋 Schema Management - Validation and evolution.
 
-Provides:
-- Schema definitions in YAML
-- DataFrame validation (not_null, unique, positive, etc.)
+TODO: Implement schema validation module.
+
+Planned features:
+- SchemaValidator: Validate DataFrames against YAML schemas
+- Column tests: not_null, unique, positive, accepted_values
 - Schema evolution tracking
-- dbt-like data tests
+
+For now, schema is defined in:
+- Pipeline YAML configs (pipeline/config.py)
+- Tests defined in YAML are run by executor
 """
 
-from .validator import validate_dataframe, SchemaValidator
-from .tests import not_null, unique, positive, accepted_values
+# TODO: Implement when needed
+# from .validator import validate_dataframe, SchemaValidator
+# from .tests import not_null, unique, positive, accepted_values
 
-__all__ = [
-    "validate_dataframe",
-    "SchemaValidator",
-    "not_null",
-    "unique",
-    "positive",
-    "accepted_values",
-]
+__all__: list[str] = []
