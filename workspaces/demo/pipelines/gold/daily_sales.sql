@@ -1,5 +1,5 @@
--- 🐀 Gold Daily Sales Pipeline
--- Aggregates silver sales data into daily KPIs
+-- 🐀 Gold: Daily Sales KPIs
+-- Aggregates sales by store and date for executive dashboards
 --
 -- @name: gold_daily_sales
 -- @materialized: table
@@ -14,7 +14,9 @@ SELECT
     ROUND(SUM(total_amount), 2) AS total_revenue,
     ROUND(AVG(total_amount), 2) AS avg_transaction_value,
     COUNT(DISTINCT customer_id) AS unique_customers,
-    COUNT(DISTINCT product_id) AS unique_products
+    COUNT(DISTINCT product_id) AS unique_products,
+    -- Top category by revenue
+    MODE(category) AS top_category
 FROM {{ ref('silver.sales') }}
 GROUP BY _date, store_id
 ORDER BY _date DESC, total_revenue DESC

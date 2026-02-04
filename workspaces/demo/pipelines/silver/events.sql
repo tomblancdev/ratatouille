@@ -1,21 +1,24 @@
--- 🐀 Silver Events Pipeline
--- Cleans and validates raw events from bronze layer
+-- 🐀 Silver: Cleaned Events
+-- Validates and standardizes raw web analytics events
 --
 -- @name: silver_events
 -- @materialized: incremental
 -- @unique_key: event_id
--- @partition_by: event_date
+-- @partition_by: _date
 -- @owner: data-team
 
 SELECT
     event_id,
     user_id,
+    session_id,
     UPPER(event_type) AS event_type,
     page_url,
+    referrer,
     timestamp AS event_timestamp,
-    CAST(timestamp AS DATE) AS event_date,
-    device,
-    country,
+    CAST(timestamp AS DATE) AS _date,
+    LOWER(device) AS device,
+    browser,
+    UPPER(country) AS country,
     session_duration_sec,
     _ingested_at,
     NOW() AS _processed_at
