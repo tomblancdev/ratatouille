@@ -1,0 +1,71 @@
+# 🐀 Ratatouille Workspace DevContainer Services
+version: "3.8"
+
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      # Mount parent ratatouille repo for local development (optional)
+      - ../../..:/ratatouille:cached,ro
+    environment:
+      - RATATOUILLE_WORKSPACE=demo
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=ratatouille
+      - MINIO_SECRET_KEY=ratatouille123
+      - NESSIE_URI=http://nessie:19120/api/v1
+    depends_on:
+      - minio
+      - nessie
+    command: sleep infinity
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ratatouille
+      MINIO_ROOT_PASSWORD: ratatouille123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  nessie:
+    image: ghcr.io/projectnessie/nessie:latest
+    ports:
+      - "19120:19120"
+    environment:
+      - NESSIE_VERSION_STORE_TYPE=IN_MEMORY
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19120/api/v1/config"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Optional: JupyterLab for notebook development
+  jupyter:
+    image: jupyter/minimal-notebook:python-3.11
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_TOKEN=ratatouille
+      - MINIO_ENDPOINT=http://minio:9000
+      - NESSIE_URI=http://nessie:19120/api/v1
+    volumes:
+      - ..:/home/jovyan/workspace:cached
+    depends_on:
+      - minio
+      - nessie
+    profiles:
+      - jupyter
+
+volumes:
+  minio-data:

@@ -1,0 +1,56 @@
+{
+  "name": "Ratatouille Workspace: demo",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.formatting.provider": "none",
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+          }
+        }
+      }
+    }
+  },
+
+  "forwardPorts": [8888, 9000, 9001, 19120],
+  "portsAttributes": {
+    "8888": { "label": "Jupyter", "onAutoForward": "notify" },
+    "9000": { "label": "MinIO API", "onAutoForward": "silent" },
+    "9001": { "label": "MinIO Console", "onAutoForward": "notify" },
+    "19120": { "label": "Nessie", "onAutoForward": "silent" }
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "remoteEnv": {
+    "RATATOUILLE_WORKSPACE": "demo",
+    "MINIO_ENDPOINT": "http://minio:9000",
+    "MINIO_ACCESS_KEY": "ratatouille",
+    "MINIO_SECRET_KEY": "ratatouille123",
+    "NESSIE_URI": "http://nessie:19120/api/v1"
+  }
+}
