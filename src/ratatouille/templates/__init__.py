@@ -73,7 +73,8 @@ DEVCONTAINER_JSON = '''{{
   }},
 
   "mounts": [
-    "source=${{localWorkspaceFolder}},target=/workspace,type=bind"
+    "source=${{localWorkspaceFolder}},target=/workspace,type=bind",
+    "source=${{localWorkspaceFolder}}/../..,target=/ratatouille,type=bind,readonly"
   ],
 
   "runArgs": [
@@ -85,7 +86,8 @@ DEVCONTAINER_JSON = '''{{
     "MINIO_ENDPOINT": "http://ratatouille-minio:9000",
     "MINIO_ACCESS_KEY": "ratatouille",
     "MINIO_SECRET_KEY": "ratatouille123",
-    "NESSIE_URI": "http://ratatouille-nessie:19120/api/v1"
+    "NESSIE_URI": "http://ratatouille-nessie:19120/api/v1",
+    "PYTHONPATH": "/ratatouille/src"
   }},
 
   "postCreateCommand": "bash .devcontainer/post-create.sh",
@@ -115,8 +117,6 @@ POST_CREATE_SH = '''#!/bin/bash
 # 🐀 Ratatouille Workspace Setup
 # Connects to existing infrastructure started via `make up`
 
-set -e
-
 echo "🐀 Setting up Ratatouille workspace..."
 echo ""
 
@@ -136,8 +136,8 @@ check_service() {{
 }}
 
 SERVICES_OK=true
-check_service "MinIO" "${{MINIO_ENDPOINT}}/minio/health/live" || SERVICES_OK=false
-check_service "Nessie" "${{NESSIE_URI}}/config" || SERVICES_OK=false
+check_service "MinIO" "http://ratatouille-minio:9000/minio/health/live" || SERVICES_OK=false
+check_service "Nessie" "http://ratatouille-nessie:19120/api/v2/config" || SERVICES_OK=false
 
 if [ "$SERVICES_OK" = false ]; then
     echo ""
@@ -147,17 +147,26 @@ if [ "$SERVICES_OK" = false ]; then
     echo "  cd /path/to/ratatouille"
     echo "  make up"
     echo ""
+    echo "Then rebuild this devcontainer."
+    echo ""
 fi
 
-# Install ratatouille
+# Install ratatouille - use PYTHONPATH for local development
 echo ""
-echo "📦 Installing ratatouille..."
+echo "📦 Setting up ratatouille..."
 
-if pip install "ratatouille @ git+https://github.com/ratatouille-data/ratatouille.git" 2>/dev/null; then
-    echo "   ✅ Installed from git"
+if [ -d "/ratatouille/src/ratatouille" ]; then
+    echo "   ✅ Using local ratatouille via PYTHONPATH"
+    echo "   Path: /ratatouille/src"
+    pip install -q duckdb pandas pyarrow pyyaml jinja2 rich boto3 httpx 2>/dev/null || true
 else
-    echo "   ⚠️  Git install failed"
-    echo "   Install manually: pip install git+https://github.com/ratatouille-data/ratatouille.git"
+    echo "   📥 Installing from git..."
+    if pip install -q "ratatouille @ git+https://github.com/ratatouille-data/ratatouille.git" 2>/dev/null; then
+        echo "   ✅ Installed from git"
+    else
+        echo "   ⚠️  Git install failed"
+        echo "   Install manually: pip install git+https://github.com/ratatouille-data/ratatouille.git"
+    fi
 fi
 
 # Create workspace bucket if services are running
@@ -166,6 +175,10 @@ if [ "$SERVICES_OK" = true ]; then
     echo "🪣 Setting up workspace bucket..."
     python << 'EOF'
 import os
+import sys
+if os.path.exists("/ratatouille/src"):
+    sys.path.insert(0, "/ratatouille/src")
+
 import boto3
 from botocore.client import Config
 

@@ -2,8 +2,6 @@
 # 🐀 Ratatouille Workspace Setup
 # Connects to existing infrastructure started via `make up`
 
-set -e
-
 echo "🐀 Setting up Ratatouille workspace..."
 echo ""
 
@@ -23,8 +21,8 @@ check_service() {
 }
 
 SERVICES_OK=true
-check_service "MinIO" "${MINIO_ENDPOINT}/minio/health/live" || SERVICES_OK=false
-check_service "Nessie" "${NESSIE_URI}/config" || SERVICES_OK=false
+check_service "MinIO" "http://ratatouille-minio:9000/minio/health/live" || SERVICES_OK=false
+check_service "Nessie" "http://ratatouille-nessie:19120/api/v2/config" || SERVICES_OK=false
 
 if [ "$SERVICES_OK" = false ]; then
     echo ""
@@ -38,20 +36,21 @@ if [ "$SERVICES_OK" = false ]; then
     echo ""
 fi
 
-# Install ratatouille
+# Install ratatouille - use PYTHONPATH for local development
 echo ""
-echo "📦 Installing ratatouille..."
+echo "📦 Setting up ratatouille..."
 
-if pip install "ratatouille @ git+https://github.com/ratatouille-data/ratatouille.git" 2>/dev/null; then
-    echo "   ✅ Installed from git"
+if [ -d "/ratatouille/src/ratatouille" ]; then
+    echo "   ✅ Using local ratatouille via PYTHONPATH"
+    echo "   Path: /ratatouille/src"
+    # Install dependencies only (not the package itself)
+    pip install -q duckdb pandas pyarrow pyyaml jinja2 rich boto3 httpx 2>/dev/null || true
 else
-    echo "   ⚠️  Git install failed, trying local..."
-    # Try to find local ratatouille repo
-    if [ -d "/ratatouille/src/ratatouille" ]; then
-        pip install -e "/ratatouille[dev]"
-        echo "   ✅ Installed from local mount"
+    echo "   📥 Installing from git..."
+    if pip install -q "ratatouille @ git+https://github.com/ratatouille-data/ratatouille.git" 2>/dev/null; then
+        echo "   ✅ Installed from git"
     else
-        echo "   ⚠️  Could not install ratatouille"
+        echo "   ⚠️  Git install failed"
         echo "   Install manually: pip install git+https://github.com/ratatouille-data/ratatouille.git"
     fi
 fi
@@ -62,6 +61,11 @@ if [ "$SERVICES_OK" = true ]; then
     echo "🪣 Setting up workspace bucket..."
     python << 'EOF'
 import os
+import sys
+# Add local ratatouille to path if available
+if os.path.exists("/ratatouille/src"):
+    sys.path.insert(0, "/ratatouille/src")
+
 import boto3
 from botocore.client import Config
 

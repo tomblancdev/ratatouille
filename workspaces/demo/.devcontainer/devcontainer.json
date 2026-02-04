@@ -29,7 +29,8 @@
   },
 
   "mounts": [
-    "source=${localWorkspaceFolder},target=/workspace,type=bind"
+    "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "source=${localWorkspaceFolder}/../..,target=/ratatouille,type=bind,readonly"
   ],
 
   "runArgs": [
@@ -41,7 +42,8 @@
     "MINIO_ENDPOINT": "http://ratatouille-minio:9000",
     "MINIO_ACCESS_KEY": "ratatouille",
     "MINIO_SECRET_KEY": "ratatouille123",
-    "NESSIE_URI": "http://ratatouille-nessie:19120/api/v1"
+    "NESSIE_URI": "http://ratatouille-nessie:19120/api/v1",
+    "PYTHONPATH": "/ratatouille/src"
   },
 
   "postCreateCommand": "bash .devcontainer/post-create.sh",
