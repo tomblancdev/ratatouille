@@ -41,16 +41,16 @@ freshness:
   default_error_hours: 24
 '''
 
+# DevContainer connects to existing infrastructure (started via `make up`)
 DEVCONTAINER_JSON = '''{{
   "name": "Ratatouille Workspace: {name}",
-  "dockerComposeFile": "docker-compose.yml",
-  "service": "workspace",
+  "build": {{
+    "dockerfile": "Dockerfile",
+    "context": "."
+  }},
   "workspaceFolder": "/workspace",
 
   "features": {{
-    "ghcr.io/devcontainers/features/python:1": {{
-      "version": "3.11"
-    }},
     "ghcr.io/devcontainers/features/git:1": {{}}
   }},
 
@@ -72,75 +72,32 @@ DEVCONTAINER_JSON = '''{{
     }}
   }},
 
-  "forwardPorts": [8888, 9000, 9001, 19120],
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "mounts": [
+    "source=${{localWorkspaceFolder}},target=/workspace,type=bind"
+  ],
 
-  "remoteEnv": {{
+  "runArgs": [
+    "--network=ratatouille_default"
+  ],
+
+  "containerEnv": {{
     "RATATOUILLE_WORKSPACE": "{name}",
-    "MINIO_ENDPOINT": "http://minio:9000",
+    "MINIO_ENDPOINT": "http://ratatouille-minio:9000",
     "MINIO_ACCESS_KEY": "ratatouille",
     "MINIO_SECRET_KEY": "ratatouille123",
-    "NESSIE_URI": "http://nessie:19120/api/v1"
-  }}
+    "NESSIE_URI": "http://ratatouille-nessie:19120/api/v1"
+  }},
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "echo '🐀 Connected to Ratatouille services!'",
+
+  "remoteUser": "vscode"
 }}
 '''
 
-DOCKER_COMPOSE_YML = '''# 🐀 Ratatouille Workspace DevContainer Services
-version: "3.8"
-
-services:
-  workspace:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ..:/workspace:cached
-    environment:
-      - RATATOUILLE_WORKSPACE={name}
-      - MINIO_ENDPOINT=http://minio:9000
-      - MINIO_ACCESS_KEY=ratatouille
-      - MINIO_SECRET_KEY=ratatouille123
-      - NESSIE_URI=http://nessie:19120/api/v1
-    depends_on:
-      - minio
-      - nessie
-    command: sleep infinity
-
-  minio:
-    image: minio/minio:latest
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: ratatouille
-      MINIO_ROOT_PASSWORD: ratatouille123
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio-data:/data
-
-  nessie:
-    image: ghcr.io/projectnessie/nessie:latest
-    ports:
-      - "19120:19120"
-    environment:
-      - NESSIE_VERSION_STORE_TYPE=IN_MEMORY
-
-  jupyter:
-    image: jupyter/minimal-notebook:python-3.11
-    ports:
-      - "8888:8888"
-    environment:
-      - JUPYTER_TOKEN=ratatouille
-    volumes:
-      - ..:/home/jovyan/workspace:cached
-    profiles:
-      - jupyter
-
-volumes:
-  minio-data:
-'''
-
 DOCKERFILE = '''# 🐀 Ratatouille Workspace DevContainer
+# Connects to existing Ratatouille infrastructure (MinIO, Nessie, etc.)
+
 FROM mcr.microsoft.com/devcontainers/python:3.11
 
 RUN apt-get update && apt-get install -y --no-install-recommends \\
@@ -150,47 +107,96 @@ WORKDIR /workspace
 
 RUN pip install --upgrade pip && pip install --no-cache-dir \\
     duckdb>=1.0.0 pandas>=2.0.0 pyarrow>=15.0.0 \\
-    pyyaml>=6.0.0 jinja2>=3.1.0 rich>=13.0.0 jupyterlab>=4.0.0
+    pyyaml>=6.0.0 jinja2>=3.1.0 rich>=13.0.0 \\
+    boto3>=1.34.0 httpx>=0.27.0 jupyterlab>=4.0.0
 '''
 
 POST_CREATE_SH = '''#!/bin/bash
 # 🐀 Ratatouille Workspace Setup
+# Connects to existing infrastructure started via `make up`
+
 set -e
 
 echo "🐀 Setting up Ratatouille workspace..."
+echo ""
 
-# Install ratatouille from git
-if pip install "ratatouille @ git+https://github.com/ratatouille-data/ratatouille.git" 2>/dev/null; then
-    echo "📦 Installed ratatouille from git"
-else
-    echo "⚠️  Could not install ratatouille. Install manually or check network."
+# Check if services are running
+echo "🔍 Checking services..."
+
+check_service() {{
+    local name=$1
+    local url=$2
+    if curl -sf "$url" > /dev/null 2>&1; then
+        echo "   ✅ $name is running"
+        return 0
+    else
+        echo "   ❌ $name is NOT running at $url"
+        return 1
+    fi
+}}
+
+SERVICES_OK=true
+check_service "MinIO" "${{MINIO_ENDPOINT}}/minio/health/live" || SERVICES_OK=false
+check_service "Nessie" "${{NESSIE_URI}}/config" || SERVICES_OK=false
+
+if [ "$SERVICES_OK" = false ]; then
+    echo ""
+    echo "⚠️  Some services are not running!"
+    echo ""
+    echo "Please start the Ratatouille infrastructure first:"
+    echo "  cd /path/to/ratatouille"
+    echo "  make up"
+    echo ""
 fi
 
-# Create MinIO bucket
-echo "🪣 Setting up MinIO bucket..."
-python << 'EOF'
-import os, boto3
+# Install ratatouille
+echo ""
+echo "📦 Installing ratatouille..."
+
+if pip install "ratatouille @ git+https://github.com/ratatouille-data/ratatouille.git" 2>/dev/null; then
+    echo "   ✅ Installed from git"
+else
+    echo "   ⚠️  Git install failed"
+    echo "   Install manually: pip install git+https://github.com/ratatouille-data/ratatouille.git"
+fi
+
+# Create workspace bucket if services are running
+if [ "$SERVICES_OK" = true ]; then
+    echo ""
+    echo "🪣 Setting up workspace bucket..."
+    python << 'EOF'
+import os
+import boto3
 from botocore.client import Config
 
 try:
     s3 = boto3.client("s3",
-        endpoint_url=os.environ.get("MINIO_ENDPOINT", "http://minio:9000"),
-        aws_access_key_id=os.environ.get("MINIO_ACCESS_KEY", "ratatouille"),
-        aws_secret_access_key=os.environ.get("MINIO_SECRET_KEY", "ratatouille123"),
+        endpoint_url=os.environ.get("MINIO_ENDPOINT"),
+        aws_access_key_id=os.environ.get("MINIO_ACCESS_KEY"),
+        aws_secret_access_key=os.environ.get("MINIO_SECRET_KEY"),
         config=Config(signature_version="s3v4"))
-    bucket = f"ratatouille-{os.environ.get('RATATOUILLE_WORKSPACE', 'default')}"
+
+    workspace = os.environ.get("RATATOUILLE_WORKSPACE", "default")
+    bucket = f"ratatouille-{{workspace}}"
+
     try:
         s3.head_bucket(Bucket=bucket)
-        print(f"✅ Bucket '{{bucket}}' exists")
+        print(f"   ✅ Bucket '{{bucket}}' exists")
     except:
         s3.create_bucket(Bucket=bucket)
-        print(f"✅ Created bucket '{{bucket}}'")
+        print(f"   ✅ Created bucket '{{bucket}}'")
 except Exception as e:
-    print(f"⚠️  MinIO setup: {{e}}")
+    print(f"   ⚠️  Bucket setup: {{e}}")
 EOF
+fi
 
 echo ""
 echo "🐀 Workspace ready!"
+echo ""
+echo "Quick start:"
+echo "  from ratatouille import tools"
+echo "  tools.info()"
+echo ""
 '''
 
 CLAUDE_MD = '''# 🐀 Ratatouille Workspace - Claude Guidelines
@@ -231,9 +237,9 @@ SELECT device, COUNT(*) FROM events GROUP BY device;
 3. **Help debug** - Work with schemas and user descriptions
 '''
 
-CLAUDE_SETTINGS = '''{
+CLAUDE_SETTINGS = '''{{
   "$schema": "https://claude.ai/claude-code/settings.schema.json",
-  "permissions": {
+  "permissions": {{
     "deny": [
       "Read(data/**)",
       "Read(**/*.parquet)",
@@ -254,8 +260,8 @@ CLAUDE_SETTINGS = '''{
       "Bash(make *)",
       "Bash(git *)"
     ]
-  }
-}
+  }}
+}}
 '''
 
 GITIGNORE = '''# Data
@@ -284,20 +290,29 @@ README_MD = '''# 🐀 {name}
 
 A Ratatouille data workspace.
 
+## Prerequisites
+
+**Start the Ratatouille infrastructure first:**
+
+```bash
+# From the ratatouille repo root
+make up
+```
+
 ## Quick Start
 
-1. Open this folder in VS Code
-2. Click "Reopen in Container" when prompted
-3. Start building pipelines!
+1. Make sure `make up` is running
+2. Open this folder in VS Code
+3. Click "Reopen in Container" when prompted
+4. The devcontainer connects to the running services
 
 ```python
-from ratatouille import sdk
+from ratatouille import tools
 
-# Query data
-sdk.query("SHOW TABLES")
-
-# Run a pipeline
-sdk.run("silver.my_pipeline")
+tools.info()              # Workspace info
+tools.connections()       # Check services
+tools.tables()            # List tables
+tools.ls("bronze/")       # Browse S3
 ```
 
 ## Structure
@@ -314,13 +329,14 @@ sdk.run("silver.my_pipeline")
 └── CLAUDE.md         # AI assistant rules
 ```
 
-## Services
+## Services (via `make up`)
 
 | Service | URL |
 |---------|-----|
 | MinIO | http://localhost:9001 |
 | Nessie | http://localhost:19120 |
-| Jupyter | http://localhost:8888 (optional) |
+| Dagster | http://localhost:3030 |
+| Jupyter | http://localhost:8889 |
 '''
 
 EXAMPLE_BRONZE_PY = '''"""
@@ -341,16 +357,16 @@ def ingest() -> pd.DataFrame:
     #   - Database query
     #   - File read
 
-    return pd.DataFrame({
+    return pd.DataFrame({{
         "id": [1, 2, 3],
         "value": ["a", "b", "c"],
         "timestamp": [datetime.now()] * 3
-    })
+    }})
 
 
 if __name__ == "__main__":
     df = ingest()
-    print(f"Ingested {len(df)} rows")
+    print(f"Ingested {{len(df)}} rows")
 '''
 
 
@@ -373,9 +389,8 @@ def scaffold_workspace(name: str, target: Path) -> None:
     files: dict[str, str] = {
         "workspace.yaml": WORKSPACE_YAML.format(name=name),
         ".devcontainer/devcontainer.json": DEVCONTAINER_JSON.format(name=name),
-        ".devcontainer/docker-compose.yml": DOCKER_COMPOSE_YML.format(name=name),
         ".devcontainer/Dockerfile": DOCKERFILE,
-        ".devcontainer/post-create.sh": POST_CREATE_SH,
+        ".devcontainer/post-create.sh": POST_CREATE_SH.format(name=name),
         ".claude/settings.json": CLAUDE_SETTINGS,
         "CLAUDE.md": CLAUDE_MD,
         ".gitignore": GITIGNORE,
