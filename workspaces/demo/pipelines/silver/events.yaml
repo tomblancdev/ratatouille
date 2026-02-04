@@ -54,6 +54,20 @@ freshness:
   error_after:
     hours: 12
 
+# Pipeline triggers - multiple ways to run this pipeline
+triggers:
+  # Watch for new files in bronze/events/
+  - type: s3_sensor
+    path: bronze/events/
+    interval: 60  # Check every 60 seconds
+
+  # Also run on schedule as backup
+  - type: schedule
+    cron: hourly  # Presets: hourly, daily, weekly, or cron expression
+
+  # Auto-schedule based on freshness requirements
+  - type: freshness
+
 tests:
   - name: no_future_events
     sql: |
