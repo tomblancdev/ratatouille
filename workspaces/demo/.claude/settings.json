@@ -1,0 +1,52 @@
+{
+  "$schema": "https://claude.ai/claude-code/settings.schema.json",
+  "hooks": {
+    "preBash": ".claude/hooks/pre-bash.sh"
+  },
+  "permissions": {
+    "deny": [
+      "Read(data/**)",
+      "Read(**/*.parquet)",
+      "Read(**/*.csv)",
+      "Read(**/*.duckdb)",
+      "Read(**/.env*)",
+      "Read(**/credentials*)",
+      "Read(**/secrets*)",
+      "Read(**/*_secret*)",
+      "Read(**/*_key*)",
+      "Read(**/*_token*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ],
+    "allow": [
+      "Read(pipelines/**/*.sql)",
+      "Read(pipelines/**/*.yaml)",
+      "Read(pipelines/**/*.py)",
+      "Read(workspace.yaml)",
+      "Read(CLAUDE.md)",
+      "Read(README.md)",
+      "Read(.devcontainer/**)",
+      "Read(.claude/**)",
+      "Read(.gitignore)",
+      "Edit(pipelines/**)",
+      "Edit(workspace.yaml)",
+      "Write(pipelines/**)",
+      "Bash(make *)",
+      "Bash(git *)",
+      "Bash(python *)"
+    ]
+  },
+  "context": {
+    "include": [
+      "CLAUDE.md",
+      "workspace.yaml",
+      "pipelines/**/*.yaml"
+    ],
+    "exclude": [
+      "data/**",
+      "**/*.parquet",
+      "**/*.csv",
+      ".env*"
+    ]
+  }
+}
