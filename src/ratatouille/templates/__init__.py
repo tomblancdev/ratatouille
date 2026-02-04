@@ -4,12 +4,9 @@
 Scaffolds new workspaces with all necessary files.
 """
 
-import os
 from pathlib import Path
-from typing import Any
 
 # Template strings embedded for portability
-# (no need to ship template files separately)
 
 WORKSPACE_YAML = '''# 🐀 Ratatouille Workspace Configuration
 
@@ -41,18 +38,11 @@ freshness:
   default_error_hours: 24
 '''
 
-# DevContainer connects to existing infrastructure (started via `make up`)
+# DevContainer uses pre-built image
 DEVCONTAINER_JSON = '''{{
   "name": "Ratatouille Workspace: {name}",
-  "build": {{
-    "dockerfile": "Dockerfile",
-    "context": "."
-  }},
+  "image": "ratatouille-workspace:latest",
   "workspaceFolder": "/workspace",
-
-  "features": {{
-    "ghcr.io/devcontainers/features/git:1": {{}}
-  }},
 
   "customizations": {{
     "vscode": {{
@@ -73,143 +63,25 @@ DEVCONTAINER_JSON = '''{{
   }},
 
   "mounts": [
-    "source=${{localWorkspaceFolder}},target=/workspace,type=bind",
-    "source=${{localWorkspaceFolder}}/../..,target=/ratatouille,type=bind,readonly"
+    "source=${{localWorkspaceFolder}},target=/workspace,type=bind"
   ],
 
   "runArgs": [
-    "--network=ratatouille_default"
+    "--add-host=host.docker.internal:host-gateway"
   ],
 
   "containerEnv": {{
     "RATATOUILLE_WORKSPACE": "{name}",
-    "MINIO_ENDPOINT": "http://ratatouille-minio:9000",
+    "MINIO_ENDPOINT": "http://host.docker.internal:9000",
     "MINIO_ACCESS_KEY": "ratatouille",
     "MINIO_SECRET_KEY": "ratatouille123",
-    "NESSIE_URI": "http://ratatouille-nessie:19120/api/v1",
-    "PYTHONPATH": "/ratatouille/src"
+    "NESSIE_URI": "http://host.docker.internal:19120/api/v2"
   }},
 
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "postStartCommand": "echo '🐀 Connected to Ratatouille services!'",
+  "postStartCommand": "bash -c 'echo \\"🐀 Workspace ready!\\" && python -c \\"from ratatouille import tools; tools.connections()\\" 2>/dev/null || echo \\"Run make up first!\\"'",
 
   "remoteUser": "vscode"
 }}
-'''
-
-DOCKERFILE = '''# 🐀 Ratatouille Workspace DevContainer
-# Connects to existing Ratatouille infrastructure (MinIO, Nessie, etc.)
-
-FROM mcr.microsoft.com/devcontainers/python:3.11
-
-RUN apt-get update && apt-get install -y --no-install-recommends \\
-    curl git && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /workspace
-
-RUN pip install --upgrade pip && pip install --no-cache-dir \\
-    duckdb>=1.0.0 pandas>=2.0.0 pyarrow>=15.0.0 \\
-    pyyaml>=6.0.0 jinja2>=3.1.0 rich>=13.0.0 \\
-    boto3>=1.34.0 httpx>=0.27.0 jupyterlab>=4.0.0
-'''
-
-POST_CREATE_SH = '''#!/bin/bash
-# 🐀 Ratatouille Workspace Setup
-# Connects to existing infrastructure started via `make up`
-
-echo "🐀 Setting up Ratatouille workspace..."
-echo ""
-
-# Check if services are running
-echo "🔍 Checking services..."
-
-check_service() {{
-    local name=$1
-    local url=$2
-    if curl -sf "$url" > /dev/null 2>&1; then
-        echo "   ✅ $name is running"
-        return 0
-    else
-        echo "   ❌ $name is NOT running at $url"
-        return 1
-    fi
-}}
-
-SERVICES_OK=true
-check_service "MinIO" "http://ratatouille-minio:9000/minio/health/live" || SERVICES_OK=false
-check_service "Nessie" "http://ratatouille-nessie:19120/api/v2/config" || SERVICES_OK=false
-
-if [ "$SERVICES_OK" = false ]; then
-    echo ""
-    echo "⚠️  Some services are not running!"
-    echo ""
-    echo "Please start the Ratatouille infrastructure first:"
-    echo "  cd /path/to/ratatouille"
-    echo "  make up"
-    echo ""
-    echo "Then rebuild this devcontainer."
-    echo ""
-fi
-
-# Install ratatouille - use PYTHONPATH for local development
-echo ""
-echo "📦 Setting up ratatouille..."
-
-if [ -d "/ratatouille/src/ratatouille" ]; then
-    echo "   ✅ Using local ratatouille via PYTHONPATH"
-    echo "   Path: /ratatouille/src"
-    pip install -q duckdb pandas pyarrow pyyaml jinja2 rich boto3 httpx 2>/dev/null || true
-else
-    echo "   📥 Installing from git..."
-    if pip install -q "ratatouille @ git+https://github.com/ratatouille-data/ratatouille.git" 2>/dev/null; then
-        echo "   ✅ Installed from git"
-    else
-        echo "   ⚠️  Git install failed"
-        echo "   Install manually: pip install git+https://github.com/ratatouille-data/ratatouille.git"
-    fi
-fi
-
-# Create workspace bucket if services are running
-if [ "$SERVICES_OK" = true ]; then
-    echo ""
-    echo "🪣 Setting up workspace bucket..."
-    python << 'EOF'
-import os
-import sys
-if os.path.exists("/ratatouille/src"):
-    sys.path.insert(0, "/ratatouille/src")
-
-import boto3
-from botocore.client import Config
-
-try:
-    s3 = boto3.client("s3",
-        endpoint_url=os.environ.get("MINIO_ENDPOINT"),
-        aws_access_key_id=os.environ.get("MINIO_ACCESS_KEY"),
-        aws_secret_access_key=os.environ.get("MINIO_SECRET_KEY"),
-        config=Config(signature_version="s3v4"))
-
-    workspace = os.environ.get("RATATOUILLE_WORKSPACE", "default")
-    bucket = f"ratatouille-{{workspace}}"
-
-    try:
-        s3.head_bucket(Bucket=bucket)
-        print(f"   ✅ Bucket '{{bucket}}' exists")
-    except:
-        s3.create_bucket(Bucket=bucket)
-        print(f"   ✅ Created bucket '{{bucket}}'")
-except Exception as e:
-    print(f"   ⚠️  Bucket setup: {{e}}")
-EOF
-fi
-
-echo ""
-echo "🐀 Workspace ready!"
-echo ""
-echo "Quick start:"
-echo "  from ratatouille import tools"
-echo "  tools.info()"
-echo ""
 '''
 
 CLAUDE_MD = '''# 🐀 Ratatouille Workspace - Claude Guidelines
@@ -305,19 +177,22 @@ A Ratatouille data workspace.
 
 ## Prerequisites
 
-**Start the Ratatouille infrastructure first:**
+1. **Build the workspace image** (first time only):
+   ```bash
+   cd /path/to/ratatouille
+   make build-workspace
+   ```
 
-```bash
-# From the ratatouille repo root
-make up
-```
+2. **Start the infrastructure**:
+   ```bash
+   make up
+   ```
 
 ## Quick Start
 
-1. Make sure `make up` is running
-2. Open this folder in VS Code
-3. Click "Reopen in Container" when prompted
-4. The devcontainer connects to the running services
+1. Open this folder in VS Code
+2. Click "Reopen in Container" when prompted
+3. The devcontainer uses the pre-built image and connects to running services
 
 ```python
 from ratatouille import tools
@@ -398,12 +273,10 @@ def scaffold_workspace(name: str, target: Path) -> None:
     for d in dirs:
         (target / d).mkdir(parents=True, exist_ok=True)
 
-    # Write files
+    # Write files (no Dockerfile or post-create.sh needed with pre-built image)
     files: dict[str, str] = {
         "workspace.yaml": WORKSPACE_YAML.format(name=name),
         ".devcontainer/devcontainer.json": DEVCONTAINER_JSON.format(name=name),
-        ".devcontainer/Dockerfile": DOCKERFILE,
-        ".devcontainer/post-create.sh": POST_CREATE_SH.format(name=name),
         ".claude/settings.json": CLAUDE_SETTINGS,
         "CLAUDE.md": CLAUDE_MD,
         ".gitignore": GITIGNORE,
@@ -414,7 +287,3 @@ def scaffold_workspace(name: str, target: Path) -> None:
     for path, content in files.items():
         file_path = target / path
         file_path.write_text(content)
-
-    # Make post-create.sh executable
-    post_create = target / ".devcontainer" / "post-create.sh"
-    post_create.chmod(post_create.stat().st_mode | 0o111)

@@ -145,6 +145,17 @@ query:
 	@echo "Use: $(COMPOSE_CMD) exec jupyter python -c \"from ratatouille import sdk; sdk.query('SELECT 1')\""
 
 # ============================================
+# WORKSPACE IMAGE
+# ============================================
+
+build-workspace:
+	@echo "🐀 Building workspace image..."
+	@$(CONTAINER_RUNTIME) build -f Dockerfile.workspace -t ratatouille-workspace:latest .
+	@echo "$(GREEN)✅ Image built: ratatouille-workspace:latest$(RESET)"
+	@echo ""
+	@echo "To use in devcontainer, the image is now available locally."
+
+# ============================================
 # CLEANUP
 # ============================================
 
