@@ -1,0 +1,74 @@
+# 🐀 Silver Sales Pipeline Configuration
+# Schema definition, tests, and freshness SLA
+
+description: |
+  Cleaned and validated sales transactions.
+
+  Transformations:
+  - Filters invalid records (quantity <= 0, price <= 0)
+  - Adds calculated total_amount
+  - Partitioned by date for efficient querying
+
+owner: data-team@acme.com
+
+columns:
+  - name: txn_id
+    type: string
+    description: Unique transaction identifier
+    tests:
+      - not_null
+      - unique
+
+  - name: store_id
+    type: string
+    description: Store identifier
+    tests:
+      - not_null
+
+  - name: product_id
+    type: string
+    description: Product identifier
+    tests:
+      - not_null
+
+  - name: quantity
+    type: int
+    description: Quantity sold
+    tests:
+      - not_null
+      - positive
+
+  - name: unit_price
+    type: decimal(10,2)
+    description: Price per unit
+    tests:
+      - not_null
+      - positive
+
+  - name: total_amount
+    type: decimal(12,2)
+    description: Total transaction amount (quantity * unit_price)
+    tests:
+      - not_null
+      - positive
+
+  - name: _date
+    type: date
+    description: Partition column (transaction date)
+    tests:
+      - not_null
+
+freshness:
+  warn_after:
+    hours: 6
+  error_after:
+    hours: 24
+
+tests:
+  - name: total_equals_qty_times_price
+    sql: |
+      SELECT COUNT(*)
+      FROM {{ this }}
+      WHERE ABS(total_amount - quantity * unit_price) > 0.01
+    expect: 0
+    severity: error

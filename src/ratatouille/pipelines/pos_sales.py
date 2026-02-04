@@ -1,4 +1,17 @@
-"""🐀 Point of Sale (POS) Sales Pipeline - Demo.
+"""🐀 [DEPRECATED] Point of Sale (POS) Sales Pipeline - Demo.
+
+⚠️ This file uses the OLD Dagster + ClickHouse approach.
+   See the new dbt-like pipelines in workspaces/default/pipelines/:
+   - silver/sales.sql + sales.yaml
+   - gold/daily_sales.sql + daily_sales.yaml
+
+The new approach:
+- Uses DuckDB instead of ClickHouse
+- SQL files with Jinja templating
+- YAML configs for schema and tests
+- See docs/guides/pipelines.md for migration guide
+
+🐀 Point of Sale (POS) Sales Pipeline - Demo.
 
 This demonstrates the Bronze → Silver → Gold flow:
 1. Generate fake POS data → Landing

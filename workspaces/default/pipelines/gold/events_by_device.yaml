@@ -1,0 +1,53 @@
+# 🐀 Gold Events by Device Configuration
+
+description: |
+  Device-level platform analysis.
+
+  Use Cases:
+  - Mobile vs Desktop performance comparison
+  - Device-specific optimization decisions
+  - Platform prioritization for development
+  - Cross-device user journey analysis
+
+owner: analytics-team@acme.com
+
+columns:
+  - name: device
+    type: string
+    description: Device type (desktop, mobile, tablet)
+    tests:
+      - not_null
+      - unique
+      - accepted_values: [desktop, mobile, tablet]
+
+  - name: total_events
+    type: int
+    description: Total number of events from this device
+    tests: [not_null, positive]
+
+  - name: unique_users
+    type: int
+    description: Number of unique users
+    tests: [not_null]
+
+  - name: purchases
+    type: int
+    description: Number of purchase events
+
+  - name: conversion_rate
+    type: decimal(5,2)
+    description: Purchase rate as percentage
+
+  - name: avg_session_duration
+    type: decimal(10,1)
+    description: Average session duration in seconds
+
+  - name: countries_reached
+    type: int
+    description: Number of distinct countries
+
+freshness:
+  warn_after:
+    hours: 12
+  error_after:
+    hours: 48

@@ -1,4 +1,18 @@
-"""🐀 Example Workspace Pipeline - Fully Documented!
+"""🐀 [DEPRECATED] Example Workspace Pipeline
+
+⚠️ This file uses the OLD Dagster + ClickHouse approach.
+   See the new dbt-like pipelines:
+   - bronze/raw_events.py (Python ingestion)
+   - silver/events.sql + events.yaml (SQL + YAML)
+   - gold/events_by_page.sql + events_by_page.yaml
+
+The new approach:
+- Uses DuckDB instead of ClickHouse
+- SQL files with Jinja templating ({{ ref() }}, {% if is_incremental() %})
+- YAML configs for schema, tests, freshness
+- Python @pipeline decorators for complex logic
+
+🐀 Example Workspace Pipeline - Fully Documented!
 
 This file demonstrates how to create a production-ready data pipeline
 with Ratatouille. It is automatically discovered and loaded by Dagster.

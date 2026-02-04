@@ -1,0 +1,53 @@
+# 🐀 Analytics Workspace
+# Consumes data products from other workspaces for BI and reporting
+
+name: analytics
+version: "1.0"
+description: "Analytics team workspace - BI, dashboards, and reporting"
+
+# Isolation settings
+isolation:
+  nessie_branch: "workspace/analytics"
+  s3_prefix: "analytics"
+
+# Resource configuration
+resources:
+  profile: small  # Use small.yaml profile (20GB VM)
+  overrides:
+    max_parallel_pipelines: 4  # More parallelism for analytics queries
+
+# Medallion layer configuration
+layers:
+  bronze:
+    retention_days: 30  # Analytics doesn't need long bronze retention
+    partition_by:
+      - _ingested_date
+  silver:
+    retention_days: 180
+    partition_by:
+      - _date
+  gold:
+    retention_days: null  # Keep forever
+    partition_by: []
+
+# Data products this workspace publishes
+products:
+  - name: executive_dashboard
+    source: gold.exec_metrics
+    access:
+      - workspace: "executive-*"
+        level: read
+      - workspace: "default"
+        level: read
+    sla:
+      freshness_hours: 6
+
+# Data products this workspace subscribes to
+subscriptions:
+  - product: daily_sales_kpis
+    alias: sales          # Available as products.sales
+    version_constraint: "^1.0.0"
+
+  - product: store_inventory
+    alias: inventory      # Available as products.inventory
+    version_constraint: "latest"

@@ -1,0 +1,76 @@
+# 🐀 Executive Metrics Configuration
+
+description: |
+  Combined executive dashboard metrics from sales and inventory data.
+
+  Data Sources (via Data Products):
+  - daily_sales_kpis (aliased as products.sales)
+  - store_inventory (aliased as products.inventory)
+
+  Use Cases:
+  - Executive dashboards
+  - Board reporting
+  - Store performance reviews
+
+owner: analytics-team@acme.com
+
+columns:
+  - name: report_date
+    type: date
+    description: Date of the metrics
+    tests: [not_null]
+
+  - name: store_id
+    type: string
+    description: Store identifier
+    tests: [not_null]
+
+  - name: total_transactions
+    type: int
+    description: Number of transactions
+    tests: [not_null, positive]
+
+  - name: total_revenue
+    type: decimal(14,2)
+    description: Total revenue for the day
+    tests: [not_null]
+
+  - name: avg_transaction_value
+    type: decimal(10,2)
+    description: Average transaction value
+
+  - name: unique_customers
+    type: int
+    description: Distinct customers who made purchases
+
+  - name: total_sku_count
+    type: int
+    description: Total SKUs in inventory
+
+  - name: low_stock_count
+    type: int
+    description: Number of SKUs with low stock
+
+  - name: out_of_stock_count
+    type: int
+    description: Number of SKUs out of stock
+
+  - name: revenue_per_sku
+    type: decimal(10,2)
+    description: Average revenue per SKU
+
+  - name: revenue_per_customer
+    type: decimal(10,2)
+    description: Average revenue per customer
+
+  - name: inventory_health
+    type: string
+    description: Inventory health status (healthy/warning/critical)
+    tests:
+      - accepted_values: [healthy, warning, critical]
+
+freshness:
+  warn_after:
+    hours: 8
+  error_after:
+    hours: 24
