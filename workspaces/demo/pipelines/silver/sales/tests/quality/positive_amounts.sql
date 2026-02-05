@@ -1,6 +1,7 @@
 -- @name: positive_amounts
 -- @description: All quantities and prices must be positive
 -- @severity: error
+-- @mocks: mocks/bronze_sales.yaml
 
 SELECT
     txn_id,

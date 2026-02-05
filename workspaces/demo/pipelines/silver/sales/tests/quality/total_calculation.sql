@@ -1,6 +1,7 @@
 -- @name: total_calculation
 -- @description: total_amount must equal quantity * unit_price
 -- @severity: error
+-- @mocks: mocks/bronze_sales.yaml
 
 SELECT
     txn_id,

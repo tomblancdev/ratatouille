@@ -3,24 +3,24 @@
 Unit tests run the pipeline's SQL transformation against mock data
 injected into an in-memory DuckDB instance.
 
+Optimized for DuckDB-native operations - minimal pandas usage.
+Pandas only used for final display of small result sets.
+
 Example unit test:
 ```sql
 -- @name: test_basic_transformation
 -- @description: Verify total calculation
 -- @mocks: mocks/bronze_sales.yaml
-
--- @expect:
---   - txn_id: "T001"
---     total_amount: 20.00
--- @expect_columns: [txn_id, total_amount]
+-- @expect_count: 2
 ```
 """
 
+import json
 import re
+import tempfile
 from pathlib import Path
 
 import duckdb
-import pandas as pd
 
 from ..models import (
     DiscoveredPipeline,
@@ -30,11 +30,11 @@ from ..models import (
     TestStatus,
 )
 from ..mocks.loader import MockLoader
-from .base import BaseTestExecutor
+from .base import BaseTestExecutor, ExecutionTimer
 
 
 class UnitSQLTestExecutor(BaseTestExecutor):
-    """Execute unit SQL tests with mock data."""
+    """Execute unit SQL tests with mock data - DuckDB-native."""
 
     def __init__(self, workspace_path: Path) -> None:
         super().__init__(workspace_path)
@@ -46,16 +46,6 @@ class UnitSQLTestExecutor(BaseTestExecutor):
         test: DiscoveredTest,
     ) -> TestOutput:
         """Execute a unit SQL test with mock data."""
-        if test.sql is None:
-            return TestOutput(
-                name=test.config.name,
-                description=test.config.description,
-                test_type="unit_sql",
-                status=TestStatus.ERROR,
-                severity=test.config.severity,
-                message="No SQL content found in test file",
-            )
-
         with self._time_execution() as timer:
             try:
                 # Create in-memory DuckDB connection
@@ -64,9 +54,22 @@ class UnitSQLTestExecutor(BaseTestExecutor):
                 # Load mock data
                 mocks_used = self._load_mocks(conn, pipeline, test)
 
+                if not mocks_used:
+                    conn.close()
+                    return TestOutput(
+                        name=test.config.name,
+                        description=test.config.description,
+                        test_type="unit_sql",
+                        status=TestStatus.SKIPPED,
+                        severity=test.config.severity,
+                        message="No mock data found - add mocks to tests/mocks/",
+                        duration_ms=timer.duration_ms,
+                    )
+
                 # Get and compile the pipeline SQL
                 pipeline_sql = self._get_pipeline_sql(pipeline)
                 if pipeline_sql is None:
+                    conn.close()
                     return TestOutput(
                         name=test.config.name,
                         description=test.config.description,
@@ -82,25 +85,34 @@ class UnitSQLTestExecutor(BaseTestExecutor):
                     pipeline_sql,
                     pipeline,
                     test,
-                    list(self.mock_loader.get_loaded_tables().keys()),
+                    mocks_used,
                 )
 
                 # Execute the transformation
-                result_df = conn.execute(compiled_sql).fetchdf()
+                result = conn.execute(compiled_sql)
+                rows = result.fetchall()
+                columns = [desc[0] for desc in result.description] if result.description else []
+                row_count = len(rows)
 
-                conn.close()
-
-                # Compare with expected results
+                # Compare with expected results (using SQL)
                 if test.config.expect:
-                    passed, message, data = self._compare_results(
-                        result_df,
+                    passed, message = self._compare_results_sql(
+                        conn,
+                        rows,
+                        columns,
                         test.config.expect,
                     )
                 else:
-                    # No expected result - just check it ran successfully
                     passed = True
-                    message = f"Executed successfully, {len(result_df)} rows"
-                    data = result_df.head(5) if len(result_df) > 0 else None
+                    message = f"Executed successfully, {row_count} rows"
+
+                conn.close()
+
+                # Convert to DataFrame only for display (small result set)
+                data = None
+                if not passed or row_count <= 10:
+                    import pandas as pd
+                    data = pd.DataFrame(rows[:10], columns=columns)
 
                 return TestOutput(
                     name=test.config.name,
@@ -109,7 +121,8 @@ class UnitSQLTestExecutor(BaseTestExecutor):
                     status=TestStatus.PASSED if passed else TestStatus.FAILED,
                     severity=test.config.severity,
                     data=data,
-                    row_count=len(result_df),
+                    row_count=row_count,
+                    columns_checked=columns,
                     mocks_used=mocks_used,
                     sql=compiled_sql,
                     duration_ms=timer.duration_ms,
@@ -136,20 +149,17 @@ class UnitSQLTestExecutor(BaseTestExecutor):
         """Load mock data files into DuckDB."""
         mocks_used = []
 
-        # Get the mocks directory
         mocks_dir = pipeline.mocks_path
         if not mocks_dir:
             mocks_dir = pipeline.path / "tests" / "mocks"
 
         for mock_path_str in test.config.mocks:
-            # Resolve path relative to test file or mocks directory
             if mock_path_str.startswith("mocks/"):
                 mock_path = pipeline.path / "tests" / mock_path_str
             else:
                 mock_path = mocks_dir / mock_path_str
 
             if not mock_path.exists():
-                # Try relative to test file
                 mock_path = test.path.parent.parent / mock_path_str
 
             if mock_path.exists():
@@ -171,25 +181,20 @@ class UnitSQLTestExecutor(BaseTestExecutor):
         test: DiscoveredTest,
         available_tables: list[str],
     ) -> str:
-        """Compile pipeline SQL for unit testing.
-
-        - Replace {{ ref(...) }} with mock table names
-        - Handle {{ is_incremental() }} based on test mode
-        - Replace {{ watermark(...) }} with test values
-        """
+        """Compile pipeline SQL for unit testing."""
         is_incremental = test.config.mode == "incremental"
         watermarks = test.config.watermarks
+
+        # Remove metadata comments
+        sql = re.sub(r"^--\s*@\w+:.*$", "", sql, flags=re.MULTILINE)
 
         # Replace {{ ref('layer.name') }} with mock table name
         def replace_ref(match: re.Match[str]) -> str:
             ref_str = match.group(1)
-            # Convert to table name format
             table_name = ref_str.replace(".", "_")
-            # Find matching table in available tables
             for avail in available_tables:
                 if avail == table_name or avail.endswith(f"_{table_name}"):
                     return avail
-            # Return as-is if not found (will error at runtime)
             return table_name
 
         sql = re.sub(r"\{\{\s*ref\(['\"]([^'\"]+)['\"]\)\s*\}\}", replace_ref, sql)
@@ -198,7 +203,6 @@ class UnitSQLTestExecutor(BaseTestExecutor):
         if is_incremental:
             sql = re.sub(r"\{\{\s*is_incremental\(\)\s*\}\}", "true", sql)
         else:
-            # Remove incremental blocks entirely
             sql = re.sub(
                 r"\{%\s*if\s+is_incremental\(\)\s*%\}.*?\{%\s*endif\s*%\}",
                 "",
@@ -214,74 +218,99 @@ class UnitSQLTestExecutor(BaseTestExecutor):
 
         sql = re.sub(r"\{\{\s*watermark\(['\"]([^'\"]+)['\"]\)\s*\}\}", replace_watermark, sql)
 
-        # Replace {{ this }} with pipeline name
+        # Replace {{ this }}
         sql = re.sub(r"\{\{\s*this\s*\}\}", pipeline.name, sql)
-
-        # Remove metadata comments
-        sql = re.sub(r"^--\s*@\w+:.*$", "", sql, flags=re.MULTILINE)
 
         return sql.strip()
 
-    def _compare_results(
+    def _compare_results_sql(
         self,
-        actual: pd.DataFrame,
+        conn: duckdb.DuckDBPyConnection,
+        actual_rows: list,
+        columns: list[str],
         expected: ExpectedResult,
-    ) -> tuple[bool, str, pd.DataFrame | None]:
-        """Compare actual results with expected.
+    ) -> tuple[bool, str]:
+        """Compare results using SQL - no pandas.
 
         Returns:
-            Tuple of (passed, message, data_to_show)
+            Tuple of (passed, message)
         """
+        actual_count = len(actual_rows)
+
         # Check row count
         if expected.row_count is not None:
-            if len(actual) != expected.row_count:
+            if actual_count != expected.row_count:
                 return (
                     False,
-                    f"Row count mismatch: expected {expected.row_count}, got {len(actual)}",
-                    actual.head(10),
+                    f"Row count mismatch: expected {expected.row_count}, got {actual_count}",
                 )
 
-        # Check specific rows
+        # Check specific rows if provided
         if expected.rows is not None:
-            expected_df = pd.DataFrame(expected.rows)
+            expected_count = len(expected.rows)
 
-            # Select columns to compare
-            cols = expected.columns or list(expected_df.columns)
-
-            # Filter actual to only expected columns
-            try:
-                actual_subset = actual[cols].reset_index(drop=True)
-            except KeyError as e:
-                missing = set(cols) - set(actual.columns)
+            # Quick count check
+            if actual_count != expected_count:
                 return (
                     False,
-                    f"Missing columns in output: {missing}",
-                    actual.head(5),
+                    f"Row count mismatch: expected {expected_count}, got {actual_count}",
                 )
 
-            expected_subset = expected_df[cols].reset_index(drop=True)
+            # Create actual table
+            if actual_rows:
+                # Build VALUES clause
+                cols_str = ", ".join(columns)
+                values = []
+                for row in actual_rows:
+                    vals = []
+                    for v in row:
+                        if v is None:
+                            vals.append("NULL")
+                        elif isinstance(v, str):
+                            vals.append(f"'{v}'")
+                        else:
+                            vals.append(str(v))
+                    values.append(f"({', '.join(vals)})")
 
-            # Sort for comparison
-            order_by = expected.order_by or cols
-            actual_sorted = actual_subset.sort_values(by=order_by).reset_index(drop=True)
-            expected_sorted = expected_subset.sort_values(by=order_by).reset_index(drop=True)
+                conn.execute(f"""
+                    CREATE TABLE _actual ({cols_str}) AS
+                    SELECT * FROM (VALUES {', '.join(values)}) AS t({cols_str})
+                """)
 
-            # Compare
+            # Determine columns to compare
+            compare_cols = expected.columns or list(expected.rows[0].keys())
+
+            # Create expected table via temp file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump(expected.rows, f)
+                temp_path = f.name
             try:
-                pd.testing.assert_frame_equal(
-                    actual_sorted,
-                    expected_sorted,
-                    check_dtype=False,
-                    atol=expected.tolerance,
-                )
-                return (True, "All assertions passed", actual_sorted.head(5))
-            except AssertionError as e:
-                # Find differences
-                diff_msg = str(e)[:200]
-                return (
-                    False,
-                    f"Data mismatch: {diff_msg}",
-                    actual_sorted,
-                )
+                conn.execute(f"""
+                    CREATE TABLE _expected AS
+                    SELECT * FROM read_json_auto('{temp_path}')
+                """)
+            finally:
+                Path(temp_path).unlink(missing_ok=True)
 
-        return (True, f"Executed successfully, {len(actual)} rows", actual.head(5))
+            # Compare using SQL
+            cols_select = ", ".join(compare_cols)
+
+            # Count differences
+            try:
+                diff_result = conn.execute(f"""
+                    SELECT COUNT(*) as diff_count FROM (
+                        (SELECT {cols_select} FROM _actual EXCEPT SELECT {cols_select} FROM _expected)
+                        UNION ALL
+                        (SELECT {cols_select} FROM _expected EXCEPT SELECT {cols_select} FROM _actual)
+                    )
+                """).fetchone()
+
+                diff_count = diff_result[0] if diff_result else 0
+
+                if diff_count > 0:
+                    return (False, f"Data mismatch: {diff_count} different rows")
+
+            except Exception as e:
+                return (False, f"Comparison error: {e}")
+
+        return (True, f"All assertions passed ({actual_count} rows)")

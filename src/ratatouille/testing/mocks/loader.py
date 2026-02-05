@@ -1,22 +1,24 @@
 """Load mock data from various formats into DuckDB.
 
+Optimized for DuckDB native file readers - minimal pandas usage.
+
 Supported formats:
 - YAML (.yaml, .yml) - with 'table' and 'rows' keys
-- CSV (.csv) - filename becomes table name
-- Excel (.xlsx, .xls) - sheet names become table names
-- JSON (.json) - with 'table' and 'rows' keys, or array of records
-- Parquet (.parquet) - filename becomes table name
-- Python generators (.py) - classes with generate() method
+- CSV (.csv) - DuckDB native reader
+- Excel (.xlsx, .xls) - requires openpyxl, uses pandas bridge
+- JSON (.json) - DuckDB native reader
+- Parquet (.parquet) - DuckDB native reader
+- Python generators (.py) - for dynamic data
 """
 
 import importlib.util
 import json
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import duckdb
-import pandas as pd
 import yaml
 
 
@@ -28,11 +30,13 @@ def load_mock_file(
 ) -> list[str]:
     """Load a mock data file into DuckDB tables.
 
+    Uses DuckDB native readers where possible for performance.
+
     Args:
         file_path: Path to the mock data file
         conn: DuckDB connection to load data into
         table_name: Override table name (default: derived from file/content)
-        sheet: Sheet name for Excel files (None = all sheets)
+        sheet: Sheet name for Excel files (None = first sheet)
 
     Returns:
         List of table names created
@@ -42,13 +46,13 @@ def load_mock_file(
     if suffix in (".yaml", ".yml"):
         return _load_yaml(file_path, conn, table_name)
     elif suffix == ".csv":
-        return _load_csv(file_path, conn, table_name)
+        return _load_csv_native(file_path, conn, table_name)
     elif suffix in (".xlsx", ".xls"):
         return _load_excel(file_path, conn, table_name, sheet)
     elif suffix == ".json":
-        return _load_json(file_path, conn, table_name)
+        return _load_json_native(file_path, conn, table_name)
     elif suffix == ".parquet":
-        return _load_parquet(file_path, conn, table_name)
+        return _load_parquet_native(file_path, conn, table_name)
     elif suffix == ".py":
         return _load_generator(file_path, conn, table_name)
     else:
@@ -68,50 +72,49 @@ def _load_yaml(
     conn: duckdb.DuckDBPyConnection,
     table_name: str | None = None,
 ) -> list[str]:
-    """Load YAML mock data.
-
-    Expected format:
-    ```yaml
-    table: bronze.raw_sales
-    rows:
-      - txn_id: "T001"
-        quantity: 2
-    ```
-
-    Or multiple tables:
-    ```yaml
-    tables:
-      - table: bronze.raw_sales
-        rows: [...]
-      - table: bronze.stores
-        rows: [...]
-    ```
-    """
+    """Load YAML mock data using DuckDB's JSON capabilities."""
     with open(file_path) as f:
         data = yaml.safe_load(f)
 
     tables_created = []
 
+    def create_table_from_rows(name: str, rows: list[dict]) -> None:
+        """Create table from rows using DuckDB's native JSON parsing."""
+        if not rows:
+            # Empty table - create with no rows
+            conn.execute(f"CREATE TABLE {name} AS SELECT * FROM (SELECT 1) WHERE false")
+            return
+
+        # Write to temp file and use DuckDB's native JSON reader
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(rows, f)
+            temp_path = f.name
+
+        try:
+            conn.execute(f"""
+                CREATE TABLE {name} AS
+                SELECT * FROM read_json_auto('{temp_path}')
+            """)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
     # Single table format
     if "table" in data and "rows" in data:
         name = table_name or _normalize_table_name(data["table"])
-        df = pd.DataFrame(data["rows"])
-        _register_dataframe(conn, name, df)
+        create_table_from_rows(name, data["rows"])
         tables_created.append(name)
 
     # Multiple tables format
     elif "tables" in data:
         for table_def in data["tables"]:
             name = _normalize_table_name(table_def["table"])
-            df = pd.DataFrame(table_def["rows"])
-            _register_dataframe(conn, name, df)
+            create_table_from_rows(name, table_def["rows"])
             tables_created.append(name)
 
     # Just rows (use table_name or filename)
     elif "rows" in data:
         name = table_name or _normalize_table_name(file_path.stem)
-        df = pd.DataFrame(data["rows"])
-        _register_dataframe(conn, name, df)
+        create_table_from_rows(name, data["rows"])
         tables_created.append(name)
 
     else:
@@ -120,15 +123,94 @@ def _load_yaml(
     return tables_created
 
 
-def _load_csv(
+def _load_csv_native(
     file_path: Path,
     conn: duckdb.DuckDBPyConnection,
     table_name: str | None = None,
 ) -> list[str]:
-    """Load CSV file as a table."""
+    """Load CSV file using DuckDB's native reader."""
     name = table_name or _normalize_table_name(file_path.stem)
-    df = pd.read_csv(file_path)
-    _register_dataframe(conn, name, df)
+    conn.execute(f"""
+        CREATE TABLE {name} AS
+        SELECT * FROM read_csv_auto('{file_path}')
+    """)
+    return [name]
+
+
+def _load_json_native(
+    file_path: Path,
+    conn: duckdb.DuckDBPyConnection,
+    table_name: str | None = None,
+) -> list[str]:
+    """Load JSON file using DuckDB's native reader."""
+    # Read JSON to check structure
+    with open(file_path) as f:
+        data = json.load(f)
+
+    tables_created = []
+
+    if isinstance(data, list):
+        # Array of records - load directly
+        name = table_name or _normalize_table_name(file_path.stem)
+        conn.execute(f"""
+            CREATE TABLE {name} AS
+            SELECT * FROM read_json_auto('{file_path}')
+        """)
+        tables_created.append(name)
+
+    elif isinstance(data, dict):
+        if "rows" in data:
+            # Extract rows and load via temp file
+            name = table_name or _normalize_table_name(data.get("table", file_path.stem))
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump(data["rows"], f)
+                temp_path = f.name
+            try:
+                conn.execute(f"""
+                    CREATE TABLE {name} AS
+                    SELECT * FROM read_json_auto('{temp_path}')
+                """)
+            finally:
+                Path(temp_path).unlink(missing_ok=True)
+            tables_created.append(name)
+
+        elif "tables" in data:
+            for table_def in data["tables"]:
+                name = _normalize_table_name(table_def["table"])
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                    json.dump(table_def["rows"], f)
+                    temp_path = f.name
+                try:
+                    conn.execute(f"""
+                        CREATE TABLE {name} AS
+                        SELECT * FROM read_json_auto('{temp_path}')
+                    """)
+                finally:
+                    Path(temp_path).unlink(missing_ok=True)
+                tables_created.append(name)
+        else:
+            # Try loading as-is (single object becomes single row)
+            name = table_name or _normalize_table_name(file_path.stem)
+            conn.execute(f"""
+                CREATE TABLE {name} AS
+                SELECT * FROM read_json_auto('{file_path}')
+            """)
+            tables_created.append(name)
+
+    return tables_created
+
+
+def _load_parquet_native(
+    file_path: Path,
+    conn: duckdb.DuckDBPyConnection,
+    table_name: str | None = None,
+) -> list[str]:
+    """Load Parquet file using DuckDB's native reader."""
+    name = table_name or _normalize_table_name(file_path.stem)
+    conn.execute(f"""
+        CREATE TABLE {name} AS
+        SELECT * FROM read_parquet('{file_path}')
+    """)
     return [name]
 
 
@@ -138,7 +220,12 @@ def _load_excel(
     table_name: str | None = None,
     sheet: str | None = None,
 ) -> list[str]:
-    """Load Excel file as tables (one per sheet)."""
+    """Load Excel file - requires pandas bridge (no native DuckDB support)."""
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("pandas is required for Excel support: pip install pandas openpyxl")
+
     try:
         import openpyxl  # noqa: F401
     except ImportError:
@@ -147,7 +234,7 @@ def _load_excel(
     tables_created = []
     xlsx = pd.ExcelFile(file_path)
 
-    sheets_to_load = [sheet] if sheet else xlsx.sheet_names
+    sheets_to_load = [sheet] if sheet else [xlsx.sheet_names[0]]
 
     for sheet_name in sheets_to_load:
         if sheet_name not in xlsx.sheet_names:
@@ -155,77 +242,15 @@ def _load_excel(
 
         df = xlsx.parse(sheet_name)
         name = table_name if (table_name and sheet) else _normalize_table_name(sheet_name)
-        _register_dataframe(conn, name, df)
+
+        # Register pandas DataFrame and create table
+        conn.register("_temp_excel", df)
+        conn.execute(f"CREATE TABLE {name} AS SELECT * FROM _temp_excel")
+        conn.unregister("_temp_excel")
+
         tables_created.append(name)
 
     return tables_created
-
-
-def _load_json(
-    file_path: Path,
-    conn: duckdb.DuckDBPyConnection,
-    table_name: str | None = None,
-) -> list[str]:
-    """Load JSON mock data.
-
-    Expected formats:
-    1. Object with 'table' and 'rows':
-       {"table": "bronze.raw_sales", "rows": [...]}
-
-    2. Array of records:
-       [{"txn_id": "T001"}, {"txn_id": "T002"}]
-
-    3. Multiple tables:
-       {"tables": [{"table": "...", "rows": [...]}, ...]}
-    """
-    with open(file_path) as f:
-        data = json.load(f)
-
-    tables_created = []
-
-    if isinstance(data, list):
-        # Array of records
-        name = table_name or _normalize_table_name(file_path.stem)
-        df = pd.DataFrame(data)
-        _register_dataframe(conn, name, df)
-        tables_created.append(name)
-
-    elif isinstance(data, dict):
-        if "table" in data and "rows" in data:
-            name = table_name or _normalize_table_name(data["table"])
-            df = pd.DataFrame(data["rows"])
-            _register_dataframe(conn, name, df)
-            tables_created.append(name)
-
-        elif "tables" in data:
-            for table_def in data["tables"]:
-                name = _normalize_table_name(table_def["table"])
-                df = pd.DataFrame(table_def["rows"])
-                _register_dataframe(conn, name, df)
-                tables_created.append(name)
-
-        elif "rows" in data:
-            name = table_name or _normalize_table_name(file_path.stem)
-            df = pd.DataFrame(data["rows"])
-            _register_dataframe(conn, name, df)
-            tables_created.append(name)
-
-        else:
-            raise ValueError(f"Invalid JSON format in {file_path}")
-
-    return tables_created
-
-
-def _load_parquet(
-    file_path: Path,
-    conn: duckdb.DuckDBPyConnection,
-    table_name: str | None = None,
-) -> list[str]:
-    """Load Parquet file as a table."""
-    name = table_name or _normalize_table_name(file_path.stem)
-    df = pd.read_parquet(file_path)
-    _register_dataframe(conn, name, df)
-    return [name]
 
 
 def _load_generator(
@@ -234,21 +259,7 @@ def _load_generator(
     table_name: str | None = None,
     generator_args: dict[str, Any] | None = None,
 ) -> list[str]:
-    """Load mock data from a Python generator.
-
-    The file should contain a class with a generate() method that returns a DataFrame,
-    or a function called 'generate' that returns a DataFrame.
-
-    The @generates comment specifies the table name:
-    ```python
-    # @generates: bronze.raw_sales
-
-    class MockGenerator:
-        def generate(self, num_records: int = 100) -> pd.DataFrame:
-            ...
-    ```
-    """
-    # Read the file to extract metadata
+    """Load mock data from a Python generator."""
     content = file_path.read_text()
 
     # Extract table name from @generates comment
@@ -263,43 +274,63 @@ def _load_generator(
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    # Find generator class or function
+    # Find and run generator
     generator_args = generator_args or {}
-    df: pd.DataFrame | None = None
+    result = None
 
-    # Try to find a class with generate() method
+    # Try class with generate() method
     for attr_name in dir(module):
         attr = getattr(module, attr_name)
         if isinstance(attr, type) and hasattr(attr, "generate"):
             instance = attr()
-            df = instance.generate(**generator_args)
+            result = instance.generate(**generator_args)
             break
 
-    # Try to find a generate() function
-    if df is None and hasattr(module, "generate"):
-        df = module.generate(**generator_args)
+    # Try generate() function
+    if result is None and hasattr(module, "generate"):
+        result = module.generate(**generator_args)
 
-    if df is None:
-        raise ValueError(f"No generator found in {file_path}. "
-                        "Expected a class with generate() method or a generate() function.")
+    if result is None:
+        raise ValueError(f"No generator found in {file_path}")
 
     name = table_name or _normalize_table_name(gen_table_name)
-    _register_dataframe(conn, name, df)
+
+    # Handle different return types
+    if hasattr(result, "to_dict"):  # DataFrame-like
+        # Convert to records and use JSON via temp file
+        records = result.to_dict(orient="records")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(records, f)
+            temp_path = f.name
+        try:
+            conn.execute(f"""
+                CREATE TABLE {name} AS
+                SELECT * FROM read_json_auto('{temp_path}')
+            """)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+    elif isinstance(result, list):
+        # List of dicts via temp file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(result, f)
+            temp_path = f.name
+        try:
+            conn.execute(f"""
+                CREATE TABLE {name} AS
+                SELECT * FROM read_json_auto('{temp_path}')
+            """)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+    else:
+        raise ValueError(f"Generator returned unsupported type: {type(result)}")
+
     return [name]
-
-
-def _register_dataframe(
-    conn: duckdb.DuckDBPyConnection,
-    name: str,
-    df: pd.DataFrame,
-) -> None:
-    """Register a DataFrame as a table in DuckDB."""
-    conn.register(name, df)
-    conn.execute(f"CREATE TABLE {name} AS SELECT * FROM {name}")
 
 
 class MockLoader:
     """Load multiple mock files into a DuckDB connection.
+
+    Optimized for DuckDB native operations - minimal pandas.
 
     Example:
         loader = MockLoader()
@@ -309,7 +340,7 @@ class MockLoader:
         loader.load_file(conn, Path("mocks/stores.csv"))
 
         # Query the mock data
-        result = conn.execute("SELECT * FROM bronze_raw_sales").fetchdf()
+        result = conn.execute("SELECT * FROM bronze_raw_sales").fetchall()
     """
 
     def __init__(self) -> None:
