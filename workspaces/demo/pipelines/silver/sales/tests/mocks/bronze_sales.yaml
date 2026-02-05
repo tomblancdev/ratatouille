@@ -1,0 +1,69 @@
+# Mock data for bronze.raw_sales
+# Used by unit tests to verify transformation logic
+
+table: bronze.raw_sales
+
+rows:
+  # Valid transactions
+  - txn_id: "T001"
+    store_id: "S1"
+    product_id: "P001"
+    product_name: "Widget Pro"
+    category: "Electronics"
+    quantity: 2
+    unit_price: 10.00
+    payment_method: "card"
+    customer_id: "C001"
+    transaction_time: "2024-01-15 10:30:00"
+    _ingested_at: "2024-01-15 11:00:00"
+
+  - txn_id: "T002"
+    store_id: "S2"
+    product_id: "P002"
+    product_name: "Gadget Max"
+    category: "Electronics"
+    quantity: 3
+    unit_price: 25.50
+    payment_method: "cash"
+    customer_id: "C002"
+    transaction_time: "2024-01-15 14:00:00"
+    _ingested_at: "2024-01-15 15:00:00"
+
+  # Edge case: Should be filtered (quantity <= 0)
+  - txn_id: "T003"
+    store_id: "S1"
+    product_id: "P003"
+    product_name: "Invalid Item"
+    category: "Other"
+    quantity: 0
+    unit_price: 5.00
+    payment_method: "card"
+    customer_id: "C003"
+    transaction_time: "2024-01-15 16:00:00"
+    _ingested_at: "2024-01-15 17:00:00"
+
+  # Edge case: Should be filtered (unit_price <= 0)
+  - txn_id: "T004"
+    store_id: "S2"
+    product_id: "P004"
+    product_name: "Free Sample"
+    category: "Samples"
+    quantity: 1
+    unit_price: 0.00
+    payment_method: "card"
+    customer_id: "C004"
+    transaction_time: "2024-01-15 18:00:00"
+    _ingested_at: "2024-01-15 19:00:00"
+
+  # Edge case: Should be filtered (null txn_id)
+  - txn_id: null
+    store_id: "S1"
+    product_id: "P005"
+    product_name: "Missing ID"
+    category: "Other"
+    quantity: 1
+    unit_price: 10.00
+    payment_method: "cash"
+    customer_id: "C005"
+    transaction_time: "2024-01-15 20:00:00"
+    _ingested_at: "2024-01-15 21:00:00"
