@@ -1,61 +1,22 @@
 # 🚀 Getting Started
 
-Get Ratatouille running and build your first pipeline in minutes.
+Build your first data pipeline in minutes.
+
+> **Prerequisite:** Ratatouille platform must be running. See [Quick Start](../deploy/quick-start.md) for setup.
 
 ---
 
-## Prerequisites
-
-- **Docker** or **Podman** with Docker Compose
-- **4GB+ RAM** available for containers
-- **Ports available**: 3030, 8123, 8889, 9000, 9001
-
----
-
-## 1. Start the Platform
-
-```bash
-cd ratatouille
-
-# Start all services
-make up
-
-# Or manually:
-docker compose up -d --build
-```
-
-Wait for all services to be healthy (~30 seconds on first run).
-
-### Verify Services
-
-```bash
-make status
-# or: docker compose ps
-```
-
-You should see:
-```
-ratatouille-clickhouse   running (healthy)
-ratatouille-dagster      running
-ratatouille-jupyter      running
-ratatouille-minio        running (healthy)
-ratatouille-minio-init   exited (0)  ← this is normal
-```
-
----
-
-## 2. Access the UIs
+## Access the UIs
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
 | **Dagster** | http://localhost:3030 | None |
 | **Jupyter** | http://localhost:8889 | Token: `ratatouille` |
 | **MinIO Console** | http://localhost:9001 | `ratatouille` / `ratatouille123` |
-| **ClickHouse** | http://localhost:8123 | `ratatouille` / `ratatouille123` |
 
 ---
 
-## 3. Your First Pipeline (Jupyter)
+## Your First Pipeline (Jupyter)
 
 Open **Jupyter** at http://localhost:8889 and create a new notebook.
 
@@ -65,7 +26,7 @@ Open **Jupyter** at http://localhost:8889 and create a new notebook.
 from ratatouille import rat
 
 # Verify connection
-print(rat.buckets())  # Should show: ['bronze', 'gold', 'landing', 'silver', 'warehouse']
+print(rat.buckets())  # Should show: ['warehouse', 'products', 'landing', ...]
 ```
 
 ### Step 2: Create Sample Data
@@ -131,7 +92,7 @@ print(f"✅ Transformed: {result}")
 ```python
 from ibis import _
 
-# Python that compiles to ClickHouse SQL
+# Python that compiles to SQL
 (rat.t("bronze.tutorial_sales")
     .filter(_.quantity > 0)
     .mutate(total=_.quantity * _.price)
@@ -159,24 +120,9 @@ df = rat.query("""
 print(df)
 ```
 
-### Step 6: Materialize for BI
-
-```python
-# Create ClickHouse table for Power BI / Grafana
-rat.materialize(
-    "tutorial_sales",
-    "silver/tutorial_sales",  # Iceberg location
-    order_by="date"
-)
-
-# Query directly in ClickHouse
-df = rat.query("SELECT * FROM tutorial_sales")
-print(df)
-```
-
 ---
 
-## 4. Your First Pipeline (Dagster)
+## Your First Pipeline (Dagster)
 
 Now let's make this a proper, scheduled pipeline.
 
@@ -285,20 +231,7 @@ docker compose restart dagster
 
 ---
 
-## 5. Useful Commands
-
-### Makefile
-
-```bash
-make up        # Start platform
-make down      # Stop platform
-make logs      # Follow all logs
-make status    # Show container status
-make query     # Open ClickHouse shell
-make clean     # Stop and remove all data
-```
-
-### SDK Quick Reference
+## SDK Quick Reference
 
 ```python
 from ratatouille import rat
@@ -306,7 +239,7 @@ from ibis import _
 
 # === Read ===
 rat.df("{bronze.table}")           # Read Iceberg table
-rat.query("SELECT * FROM ...")     # ClickHouse SQL
+rat.query("SELECT * FROM ...")     # SQL query
 rat.read("bucket/path.parquet")    # Read Parquet from S3
 
 # === Write (SQL) ===
@@ -339,50 +272,45 @@ rat.ice_drop("table")               # Delete table
 
 ---
 
-## 6. Next Steps
+## Next Steps
 
 ✅ **You've built your first pipeline!**
 
-- 📖 [SDK Reference](sdk-reference.md) - Full API documentation (SQL & Ibis)
-- 🔬 [Dev Mode](dev-mode.md) - Isolated development with Iceberg branches
-- 🏗️ [Architecture](architecture.md) - Understand the system
-- 🔧 [Building Pipelines](pipelines.md) - Production patterns
-- 🎯 [Operations](operations.md) - Monitoring & troubleshooting
+- 📖 **[SDK Reference](../reference/sdk.md)** - Full API documentation
+- 🔬 **[Dev Mode](dev-mode.md)** - Isolated development with Iceberg branches
+- 📂 **[Workspaces](workspaces.md)** - Organize projects
+- 🔧 **[SQL Pipelines](pipelines-sql.md)** - dbt-style SQL pipelines
+- 🐍 **[Python Pipelines](pipelines-python.md)** - Dagster assets
+- ✅ **[Testing](testing.md)** - Quality tests and validation
 
 ---
 
 ## Troubleshooting
-
-### Services won't start
-
-```bash
-# Check logs
-docker compose logs -f
-
-# Common issues:
-# - Port already in use: stop other services or change ports in docker-compose.yml
-# - Not enough memory: increase Docker memory limit
-```
-
-### Can't connect to services
-
-```bash
-# Make sure containers are healthy
-make status
-
-# Test ClickHouse
-curl http://localhost:8123/ping
-
-# Test MinIO
-curl http://localhost:9000/minio/health/live
-```
 
 ### SDK connection errors
 
 ```python
 # Inside Jupyter, services are on internal network:
 # - MinIO: minio:9000 (not localhost)
-# - ClickHouse: clickhouse:8123
+# - Nessie: nessie:19120
 
 # The SDK handles this automatically via environment variables
+```
+
+### Can't find tables
+
+```python
+# List all tables
+rat.ice_all()
+
+# Check namespaces
+rat.ice_namespaces()
+```
+
+### Transform fails
+
+```python
+# Preview the SQL to debug
+expanded = rat.transform_preview("SELECT * FROM {bronze.sales}")
+print(expanded)
 ```

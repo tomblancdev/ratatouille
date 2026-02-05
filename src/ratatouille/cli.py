@@ -240,9 +240,9 @@ def run_tests(
         verbose: Show verbose output
         fail_fast: Stop on first failure
     """
-    from ratatouille.testing.runner import TestRunner
     from ratatouille.testing.reporters.console import ConsoleReporter
     from ratatouille.testing.reporters.json import JSONReporter
+    from ratatouille.testing.runner import TestRunner
 
     # Determine workspace path
     if workspace:

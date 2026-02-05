@@ -22,15 +22,16 @@ Advanced SDK:
     sdk.publish("my_product", "gold.metrics", "1.0.0")
 """
 
-__version__ = "2.0.0"
-
-# Import tools for easy access
 from ratatouille import tools
 
+__version__ = "2.0.0"
+
+
 # Import SDK (lazy to avoid heavy imports)
-def __getattr__(name):
+def __getattr__(name: str) -> object:
     if name == "sdk":
         from ratatouille.sdk import RatatouilleSDK
+
         return RatatouilleSDK()
     raise AttributeError(f"module 'ratatouille' has no attribute '{name}'")
 

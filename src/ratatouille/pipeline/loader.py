@@ -163,20 +163,33 @@ def _detect_layer(path: Path) -> Literal["bronze", "silver", "gold"]:
 
 
 def discover_pipelines(
-    workspace: "Workspace",
+    workspace: "Workspace | Path",
     layer: str | None = None,
 ) -> list[LoadedPipeline]:
     """Discover all pipelines in a workspace.
 
     Args:
-        workspace: Workspace to scan
+        workspace: Workspace to scan, or Path to workspace/pipelines directory
         layer: Optional layer filter (bronze, silver, gold)
 
     Returns:
         List of LoadedPipeline objects
     """
     pipelines = []
-    pipelines_dir = workspace.path / "pipelines"
+
+    # Support both Workspace objects and direct Path for flexibility
+    if isinstance(workspace, Path):
+        # If it's a path, check if it's a pipelines dir or workspace root
+        if workspace.name == "pipelines":
+            pipelines_dir = workspace
+        elif (workspace / "pipelines").exists():
+            pipelines_dir = workspace / "pipelines"
+        else:
+            pipelines_dir = workspace
+        workspace_obj = None
+    else:
+        pipelines_dir = workspace.path / "pipelines"
+        workspace_obj = workspace
 
     if not pipelines_dir.exists():
         return []
@@ -192,7 +205,7 @@ def discover_pipelines(
         # Find SQL pipelines
         for sql_file in layer_dir.glob("*.sql"):
             try:
-                pipeline = load_pipeline(sql_file, workspace)
+                pipeline = load_pipeline(sql_file, workspace_obj)
                 pipelines.append(pipeline)
             except Exception as e:
                 print(f"⚠️ Could not load {sql_file}: {e}")
@@ -202,7 +215,7 @@ def discover_pipelines(
             if py_file.name.startswith("_"):
                 continue
             try:
-                pipeline = load_pipeline(py_file, workspace)
+                pipeline = load_pipeline(py_file, workspace_obj)
                 pipelines.append(pipeline)
             except Exception as e:
                 print(f"⚠️ Could not load {py_file}: {e}")
