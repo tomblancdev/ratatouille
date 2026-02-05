@@ -85,7 +85,7 @@ class ResourceConfig(BaseModel):
     def to_duckdb_settings(self) -> dict[str, str]:
         """Generate DuckDB SET statements."""
         return {
-            "memory_limit": self.duckdb.memory_limit,
+            "memory_limit": f"'{self.duckdb.memory_limit}'",
             "threads": str(self.duckdb.threads),
             "temp_directory": f"'{self.duckdb.temp_directory}'",
             "preserve_insertion_order": str(
