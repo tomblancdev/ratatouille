@@ -14,7 +14,6 @@ Complete reference for all environment variables.
 | `ICEBERG_WAREHOUSE` | `s3://warehouse/` | Iceberg warehouse path |
 | `RAT_PROFILE` | `small` | Resource profile |
 | `RATATOUILLE_WORKSPACE` | `demo` | Default workspace |
-| `JUPYTER_TOKEN` | `ratatouille` | Jupyter access token |
 
 ---
 
@@ -125,7 +124,6 @@ RAT_PROFILE=small  # Options: tiny, small, medium, large
 MINIO_MEMORY=1G
 NESSIE_MEMORY=768M
 DAGSTER_MEMORY=2G
-JUPYTER_MEMORY=2G
 ```
 
 ---
@@ -144,20 +142,6 @@ DAGSTER_MEMORY=2G
 
 ---
 
-## Jupyter
-
-### Configuration
-
-```bash
-# Access token
-JUPYTER_TOKEN=ratatouille
-
-# Memory limit
-JUPYTER_MEMORY=2G
-```
-
----
-
 ## Using .env Files
 
 Create a `.env` file in your project root:
@@ -167,7 +151,6 @@ Create a `.env` file in your project root:
 MINIO_ROOT_USER=myuser
 MINIO_ROOT_PASSWORD=mysecretpassword
 RAT_PROFILE=medium
-JUPYTER_TOKEN=mysecrettoken
 ```
 
 Docker Compose automatically loads `.env` files.
@@ -183,7 +166,6 @@ MINIO_MEMORY=512M
 NESSIE_MEMORY=256M
 NESSIE_MAX_HEAP=128m
 DAGSTER_MEMORY=1G
-JUPYTER_MEMORY=1G
 ```
 
 ### small.yaml (20GB RAM) - Default
@@ -193,7 +175,6 @@ MINIO_MEMORY=1G
 NESSIE_MEMORY=768M
 NESSIE_MAX_HEAP=512m
 DAGSTER_MEMORY=2G
-JUPYTER_MEMORY=2G
 ```
 
 ### medium.yaml (64GB RAM)
@@ -203,7 +184,6 @@ MINIO_MEMORY=2G
 NESSIE_MEMORY=1G
 NESSIE_MAX_HEAP=768m
 DAGSTER_MEMORY=4G
-JUPYTER_MEMORY=4G
 ```
 
 ### large.yaml (128GB+ RAM)
@@ -213,7 +193,6 @@ MINIO_MEMORY=4G
 NESSIE_MEMORY=2G
 NESSIE_MAX_HEAP=1536m
 DAGSTER_MEMORY=8G
-JUPYTER_MEMORY=8G
 ```
 
 ---
@@ -250,7 +229,6 @@ os.getenv("RATATOUILLE_WORKSPACE")  # demo
 # Change all default passwords!
 MINIO_ROOT_USER=secure_user_name
 MINIO_ROOT_PASSWORD=very_long_secure_password_here
-JUPYTER_TOKEN=another_secure_token
 ```
 
 ### Resource Limits
@@ -261,7 +239,6 @@ RAT_PROFILE=medium
 
 # Or set explicitly
 DAGSTER_MEMORY=8G
-JUPYTER_MEMORY=4G
 ```
 
 ### External Access

@@ -192,22 +192,6 @@ pipelines/
 
 ---
 
-### 5. Jupyter Lab (Development)
-
-**Role:** Interactive development environment with LSP and linting.
-
-**Features:**
-- 🔧 **Language Server Protocol (LSP)** - Autocomplete, go-to-definition
-- 📝 **Ruff Linting** - Fast Python linting
-- 📁 **Workspace mount** - Edit files that persist
-
-**Access:**
-- URL: http://localhost:8889
-- Token: `ratatouille`
-- Notebook directory: `/app/workspaces`
-
----
-
 ## Data Flow
 
 ### Ingestion Flow
@@ -255,34 +239,28 @@ pipelines/
 │                    Docker Network                           │
 │                                                             │
 │  ┌─────────────┐         ┌─────────────┐                   │
-│  │   Jupyter   │ ──────▶ │  ClickHouse │                   │
-│  │  :8888      │         │   :8123     │                   │
+│  │   Dagster   │ ──────▶ │   Nessie    │                   │
+│  │   :3000     │         │   :19120    │                   │
 │  └──────┬──────┘         └──────┬──────┘                   │
 │         │                       │                           │
-│         │ S3 API                │ S3 API                    │
+│         │ S3 API                │ Catalog API               │
 │         ▼                       ▼                           │
 │  ┌─────────────────────────────────────┐                   │
 │  │              MinIO                   │                   │
 │  │              :9000                   │                   │
 │  └─────────────────────────────────────┘                   │
-│         ▲                                                   │
-│         │                                                   │
-│  ┌──────┴──────┐                                           │
-│  │   Dagster   │                                           │
-│  │   :3000     │                                           │
-│  └─────────────┘                                           │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
-         │              │              │              │
-         ▼              ▼              ▼              ▼
-    localhost:     localhost:     localhost:     localhost:
-       8889           8123           3030         9000/9001
-     (Jupyter)    (ClickHouse)    (Dagster)       (MinIO)
+              │              │              │
+              ▼              ▼              ▼
+         localhost:     localhost:     localhost:
+            3030         9000/9001       19120
+          (Dagster)       (MinIO)       (Nessie)
 ```
 
 **Internal hostnames:**
 - `minio:9000` - MinIO S3 API
-- `clickhouse:8123` - ClickHouse HTTP
+- `nessie:19120` - Nessie REST API
 - Services discover each other by container name
 
 ---

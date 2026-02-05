@@ -52,11 +52,11 @@ make up
 
 # Access the UIs
 # Dagster:    http://localhost:3030
-# Jupyter:    http://localhost:8889 (token: ratatouille)
 # MinIO:      http://localhost:9001 (ratatouille/ratatouille123)
+# Nessie:     http://localhost:19120
 ```
 
-In Jupyter or your Python code:
+In your Python code (or devcontainer):
 
 ```python
 from ratatouille import run, workspace, query, tools
@@ -113,10 +113,10 @@ rat test
 
 A **self-hosted data platform** providing:
 
-- 🏠 **Medallion Lakehouse** - Bronze → Silver → Gold with DuckDB + Parquet
+- 🏠 **Medallion Lakehouse** - Bronze → Silver → Gold with DuckDB + Iceberg
 - ⚡ **File-First Pipelines** - Define pipelines as SQL/Python files (like dbt)
 - 📊 **Orchestration** - Dagster for pipeline management
-- 🔬 **Interactive Development** - Jupyter Lab with LSP
+- 🌳 **Git-like Data Versioning** - Nessie catalog syncs with Git branches
 - 📦 **S3-Compatible Storage** - MinIO for object storage
 - 🦭 **Container-First** - Docker/Podman, scales to Kubernetes
 
@@ -127,10 +127,10 @@ A **self-hosted data platform** providing:
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | **Storage** | MinIO | S3-compatible object storage |
+| **Table Format** | Apache Iceberg | ACID transactions, time travel |
+| **Catalog** | Nessie | Git-like versioning for data |
 | **Query Engine** | DuckDB | Fast OLAP analytics |
-| **Format** | Parquet | Columnar storage |
 | **Orchestration** | Dagster | Pipeline management & scheduling |
-| **Development** | Jupyter Lab | Interactive notebooks |
 | **SDK** | Python | Unified data operations API |
 
 ---

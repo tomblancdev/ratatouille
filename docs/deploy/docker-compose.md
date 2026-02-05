@@ -11,8 +11,8 @@ Detailed configuration for running Ratatouille with Docker/Podman.
 │                    Docker Network                           │
 │                                                             │
 │  ┌─────────────┐         ┌─────────────┐                   │
-│  │   Jupyter   │ ──────▶ │   Nessie    │                   │
-│  │  :8888      │         │   :19120    │                   │
+│  │   Dagster   │ ──────▶ │   Nessie    │                   │
+│  │   :3000     │         │   :19120    │                   │
 │  └──────┬──────┘         └──────┬──────┘                   │
 │         │                       │                           │
 │         │ S3 API                │ Catalog API               │
@@ -21,19 +21,13 @@ Detailed configuration for running Ratatouille with Docker/Podman.
 │  │              MinIO                   │                   │
 │  │              :9000                   │                   │
 │  └─────────────────────────────────────┘                   │
-│         ▲                                                   │
-│         │                                                   │
-│  ┌──────┴──────┐                                           │
-│  │   Dagster   │                                           │
-│  │   :3000     │                                           │
-│  └─────────────┘                                           │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
-         │              │              │              │
-         ▼              ▼              ▼              ▼
-    localhost:     localhost:     localhost:     localhost:
-       8889           3030         9000/9001       19120
-     (Jupyter)      (Dagster)       (MinIO)       (Nessie)
+              │              │              │
+              ▼              ▼              ▼
+         localhost:     localhost:     localhost:
+            3030         9000/9001       19120
+          (Dagster)       (MinIO)       (Nessie)
 ```
 
 ---
@@ -85,14 +79,6 @@ nessie:
 | Memory | 2GB (configurable) |
 | Workspace | Configurable via env |
 
-### Jupyter Lab (Development)
-
-| Setting | Value |
-|---------|-------|
-| URL | `http://localhost:8889` |
-| Token | `ratatouille` (configurable) |
-| Memory | 2GB (configurable) |
-
 ---
 
 ## Starting & Stopping
@@ -128,7 +114,7 @@ docker compose restart
 
 # Restart specific service
 docker compose restart dagster
-docker compose restart jupyter
+docker compose restart nessie
 ```
 
 ---
@@ -169,9 +155,9 @@ services:
     ports:
       - "3031:3000"  # Use 3031 instead of 3030
 
-  jupyter:
+  minio:
     ports:
-      - "8890:8888"  # Use 8890 instead of 8889
+      - "9002:9000"  # Use 9002 instead of 9000
 ```
 
 ---
@@ -185,7 +171,6 @@ Memory limits are configurable via environment variables:
 MINIO_MEMORY=2G
 NESSIE_MEMORY=1G
 DAGSTER_MEMORY=4G
-JUPYTER_MEMORY=4G
 ```
 
 Or use resource profiles:

@@ -8,7 +8,7 @@ Get Ratatouille up and running in minutes.
 
 - **Docker** or **Podman** with Docker Compose
 - **4GB+ RAM** available for containers
-- **Ports available**: 3030, 8123, 8889, 9000, 9001, 19120
+- **Ports available**: 3030, 9000, 9001, 19120
 
 ---
 
@@ -41,7 +41,6 @@ You should see:
 ratatouille-minio       running (healthy)
 ratatouille-nessie      running (healthy)
 ratatouille-dagster     running
-ratatouille-jupyter     running
 ratatouille-minio-init  exited (0)  ← this is normal
 ```
 
@@ -52,7 +51,6 @@ ratatouille-minio-init  exited (0)  ← this is normal
 | Service | URL | Credentials |
 |---------|-----|-------------|
 | **Dagster** | http://localhost:3030 | None |
-| **Jupyter** | http://localhost:8889 | Token: `ratatouille` |
 | **MinIO Console** | http://localhost:9001 | `ratatouille` / `ratatouille123` |
 | **Nessie** | http://localhost:19120 | None |
 
