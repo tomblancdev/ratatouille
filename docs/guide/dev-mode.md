@@ -1,227 +1,129 @@
-# Dev Mode - Iceberg Branches
+# Dev Mode - Development Branches
 
-Dev mode provides git-like branching for your data, so you can develop and test pipeline changes in isolation without affecting production data.
+> **Note:** Dev mode with Iceberg branches has been replaced with a simpler file-first approach in v2.0.
 
-## How It Works
+## File-First Development
 
-Dev mode uses **native Iceberg branches** which means:
+In the file-first architecture, development isolation is handled through:
 
-- **Zero data duplication** - Branches are metadata-only until you write
-- **Copy-on-write** - Only modified data is duplicated
-- **Fast-forward merge** - Merge is just a metadata update
-- **Time travel still works** - Both branches have snapshot history
+1. **Workspaces** - Each project/team has its own workspace
+2. **Git branches** - Pipeline code changes are version controlled
+3. **Environment separation** - Dev vs prod workspaces
 
-## Quick Start
+## Development Workflow
 
-### In Jupyter Notebooks
-
-```python
-from ratatouille import rat
-
-# Start dev mode - all writes go to a branch
-rat.dev_start("feature/new-cleaning")
-
-# Work on your transforms
-rat.transform(
-    sql="SELECT * FROM {bronze.sales} WHERE amount > 0",
-    target="silver.sales"
-)
-
-# Check what changed
-rat.dev_diff("silver.sales")
-# → {"main_rows": 1000, "branch_rows": 1050, "diff": 50}
-
-# Happy with changes? Merge to main
-rat.dev_merge()
-
-# Or abandon changes
-# rat.dev_drop()
-```
-
-### Using Context Manager
-
-```python
-with rat.dev_context("experiment/crazy-idea"):
-    # Everything here uses the branch
-    rat.transform(sql1, target="silver.sales")
-    rat.transform(sql2, target="gold.summary")
-
-    # Test it
-    df = rat.df("{gold.summary}")
-    assert len(df) > 0
-
-# Outside context: back to main
-# Branch still exists, can merge later
-rat.dev_merge("experiment/crazy-idea")
-```
-
-### Using Makefile
+### 1. Create a Dev Workspace
 
 ```bash
-# Start dev session
-make dev BRANCH=feature/fix-nulls
-
-# Merge when ready
-make dev-merge BRANCH=feature/fix-nulls
-
-# Or drop it
-make dev-drop BRANCH=feature/fix-nulls
-
-# Check status
-make dev-status
-make dev-branches
+# Create a new workspace for development
+rat init my-feature-dev
+cd my-feature-dev
 ```
 
-## API Reference
+### 2. Edit Pipeline Files
 
-### `rat.dev(branch_name)`
+```sql
+-- pipelines/silver/sales.sql
+-- Make your changes here
+SELECT
+    date,
+    product,
+    quantity * price AS total,
+    -- New field being developed
+    discount_pct
+FROM {{ ref('bronze.sales') }}
+WHERE quantity > 0
+```
 
-Enter or exit dev mode.
+### 3. Test Locally
 
 ```python
-rat.dev("feature/new")  # Enter dev mode
-rat.dev(None)           # Exit dev mode
+from ratatouille import run, query, workspace
+
+# Use dev workspace
+workspace("my-feature-dev")
+
+# Run the pipeline
+run("silver.sales")
+
+# Check results
+df = query("SELECT * FROM silver.sales LIMIT 10")
+print(df)
 ```
 
-### `rat.dev_start(branch_name, tables=None)`
+### 4. Run Tests
 
-Create a new branch on specified tables and enter dev mode.
+```bash
+rat test -w my-feature-dev
+```
+
+### 5. Commit and Deploy
+
+```bash
+# When ready, commit your changes
+git add pipelines/silver/sales.sql
+git commit -m "Add discount_pct to silver.sales"
+git push
+
+# Deploy to production workspace
+# (via CI/CD or manual deployment)
+```
+
+## Environment Separation
+
+### Using Environment Variables
+
+```bash
+# Development
+RATATOUILLE_WORKSPACE=dev rat run silver.sales
+
+# Production
+RATATOUILLE_WORKSPACE=prod rat run silver.sales
+```
+
+### Using Workspace Configs
+
+```yaml
+# workspaces/dev/workspace.yaml
+name: dev
+s3_prefix: s3://dev-warehouse/
+
+# workspaces/prod/workspace.yaml
+name: prod
+s3_prefix: s3://prod-warehouse/
+```
+
+## Comparing Results
 
 ```python
-# Branch all tables
-rat.dev_start("feature/new")
+from ratatouille import workspace, query
 
-# Branch specific tables
-rat.dev_start("feature/new", tables=["bronze.sales", "silver.sales"])
+# Query dev
+workspace("dev")
+dev_df = query("SELECT COUNT(*) as cnt FROM silver.sales")
+
+# Query prod
+workspace("prod")
+prod_df = query("SELECT COUNT(*) as cnt FROM silver.sales")
+
+# Compare
+print(f"Dev: {dev_df['cnt'][0]}, Prod: {prod_df['cnt'][0]}")
 ```
 
-### `rat.dev_status()`
+## Best Practices
 
-Get current dev mode status.
+1. **Use separate workspaces** for dev, staging, and prod
+2. **Version control** all pipeline files
+3. **Run tests** before deploying to production
+4. **Use CI/CD** for automated deployments
 
-```python
-rat.dev_status()
-# → {"active": True, "branch": "feature/new"}
-```
+## Migration from v1.x
 
-### `rat.dev_merge(branch_name=None)`
+If you were using `rat.dev_start()`, `rat.dev_merge()`, etc., migrate to the workspace-based approach:
 
-Merge branch to main. Fast-forward merge (metadata-only).
-
-```python
-rat.dev_merge()              # Merge current branch
-rat.dev_merge("feature/x")   # Merge specific branch
-```
-
-### `rat.dev_drop(branch_name=None)`
-
-Drop a branch without merging.
-
-```python
-rat.dev_drop()               # Drop current branch
-rat.dev_drop("feature/x")    # Drop specific branch
-```
-
-### `rat.dev_diff(table, branch_name=None)`
-
-Compare branch to main.
-
-```python
-rat.dev_diff("silver.sales")
-# → {"main_rows": 1000, "branch_rows": 1050, "diff": 50}
-```
-
-### `rat.dev_branches(table=None)`
-
-List branches for tables.
-
-```python
-# All tables
-rat.dev_branches()
-# → {"bronze.sales": [...], "silver.sales": [...]}
-
-# Single table
-rat.dev_branches("bronze.sales")
-# → [{"name": "main", "type": "branch"}, ...]
-```
-
-### `rat.dev_context(branch_name)`
-
-Context manager for dev mode.
-
-```python
-with rat.dev_context("feature/test"):
-    rat.transform(...)  # Uses branch
-# Back to previous state
-```
-
-## Workflow Examples
-
-### 1. Feature Development
-
-```python
-# Start feature branch
-rat.dev_start("feature/new-cleaning")
-
-# Develop your transforms
-rat.transform(
-    sql="SELECT *, COALESCE(amount, 0) as amount FROM {bronze.sales}",
-    target="silver.sales"
-)
-
-# Test the results
-df = rat.df("{silver.sales}")
-assert df["amount"].isna().sum() == 0
-
-# Merge to production
-rat.dev_merge()
-```
-
-### 2. Safe Experiments
-
-```python
-# Try something risky
-rat.dev_start("experiment/aggressive-dedup")
-
-# Make aggressive changes
-rat.transform(
-    sql="SELECT DISTINCT * FROM {bronze.sales}",
-    target="bronze.sales",
-    mode="overwrite"
-)
-
-# Oops, that was too aggressive
-rat.dev_drop()
-
-# Main is unaffected!
-df = rat.ice_read("bronze.sales")  # Original data still there
-```
-
-### 3. A/B Testing Transforms
-
-```python
-# Version A
-with rat.dev_context("experiment/version-a"):
-    rat.transform(sql_version_a, target="gold.metrics")
-    metrics_a = rat.df("{gold.metrics}")
-
-# Version B
-with rat.dev_context("experiment/version-b"):
-    rat.transform(sql_version_b, target="gold.metrics")
-    metrics_b = rat.df("{gold.metrics}")
-
-# Compare and pick winner
-if metrics_a["accuracy"].mean() > metrics_b["accuracy"].mean():
-    rat.dev_merge("experiment/version-a")
-    rat.dev_drop("experiment/version-b")
-else:
-    rat.dev_merge("experiment/version-b")
-    rat.dev_drop("experiment/version-a")
-```
-
-## Notes
-
-- Branches are per-table, not global
-- Reading from a branch falls back to main if data doesn't exist on branch
-- Multiple developers can work on different branches simultaneously
-- Branch names can use `/` for organization (e.g., `feature/x`, `experiment/y`)
+| Old (v1.x) | New (v2.x) |
+|------------|------------|
+| `rat.dev_start("feature/x")` | Create separate workspace |
+| `rat.dev_merge()` | Git merge + deploy |
+| `rat.dev_drop()` | Delete workspace |
+| `rat.dev_diff("table")` | Compare queries across workspaces |

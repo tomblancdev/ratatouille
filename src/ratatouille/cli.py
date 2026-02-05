@@ -77,8 +77,8 @@ def init_workspace(name: str, path: Path | None = None) -> None:
 
 [bold]Quick start:[/bold]
   [dim]# In the devcontainer[/dim]
-  from ratatouille import sdk
-  sdk.query("SHOW TABLES")
+  from ratatouille import query
+  query("SHOW TABLES")
 """,
                 title="🐀 Workspace Ready!",
                 border_style="green",
@@ -91,12 +91,12 @@ def init_workspace(name: str, path: Path | None = None) -> None:
 
 def run_pipeline(pipeline: str, full_refresh: bool = False) -> None:
     """Run a pipeline."""
-    from ratatouille import sdk
+    from ratatouille import run
 
     console.print(f"⚡ Running pipeline [cyan]{pipeline}[/cyan]...")
 
     try:
-        result = sdk.run(pipeline, full_refresh=full_refresh)
+        result = run(pipeline, full_refresh=full_refresh)
         console.print(f"[green]✓[/green] Pipeline completed: {result}")
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
@@ -105,10 +105,10 @@ def run_pipeline(pipeline: str, full_refresh: bool = False) -> None:
 
 def run_query(sql: str) -> None:
     """Execute a SQL query."""
-    from ratatouille import sdk
+    from ratatouille import query
 
     try:
-        result = sdk.query(sql)
+        result = query(sql)
         console.print(result)
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")

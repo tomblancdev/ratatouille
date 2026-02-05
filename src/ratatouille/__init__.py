@@ -1,39 +1,49 @@
 """🐀 Ratatouille - Anyone Can Data!
 
-Quick Start:
-    from ratatouille import tools
+File-First Pipeline Development:
+    # Define pipelines as files (SQL/Python + YAML)
+    # workspaces/myworkspace/pipelines/silver/sales.sql
 
-    # Explore your workspace
-    tools.info()                    # Workspace info
-    tools.ls("bronze/")             # List files in S3
-    tools.tables()                  # List all tables
-    tools.schema("silver.events")   # Get table schema
-    tools.preview("gold.metrics")   # Preview data
+    # Run from Python
+    from ratatouille import run, workspace
 
-    # S3 paths
-    tools.s3_uri("silver", "events")  # Get full S3 URI
-    tools.tree()                      # Show folder structure
+    workspace("myworkspace")
+    run("silver.sales")
 
-Advanced SDK:
-    from ratatouille import sdk
+    # Or use CLI
+    # rat run silver.sales -w myworkspace
 
-    df = sdk.query("SELECT * FROM ...")
-    sdk.run("silver.events")
-    sdk.publish("my_product", "gold.metrics", "1.0.0")
+Exploration (for notebooks):
+    from ratatouille import tools, query
+
+    tools.tables()                    # List tables
+    tools.schema("silver.sales")      # Get schema
+    tools.preview("gold.metrics")     # Preview data
+
+    df = query("SELECT * FROM ...")   # Quick query
 """
-
-from ratatouille import tools
 
 __version__ = "2.0.0"
 
+# Tools module for exploration
+from ratatouille import tools
 
-# Import SDK (lazy to avoid heavy imports)
-def __getattr__(name: str) -> object:
-    if name == "sdk":
-        from ratatouille.sdk import RatatouilleSDK
+# Core SDK functions
+from ratatouille.sdk import (
+    list_workspaces,
+    query,
+    run,
+    workspace,
+)
 
-        return RatatouilleSDK()
-    raise AttributeError(f"module 'ratatouille' has no attribute '{name}'")
-
-
-__all__ = ["tools", "sdk", "__version__"]
+__all__ = [
+    # SDK
+    "run",
+    "workspace",
+    "list_workspaces",
+    "query",
+    # Exploration
+    "tools",
+    # Meta
+    "__version__",
+]

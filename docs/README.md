@@ -36,7 +36,6 @@
 - [Workspaces](guide/workspaces.md) - Project organization
 - [SQL Pipelines](guide/pipelines-sql.md) - dbt-style pipelines
 - [Python Pipelines](guide/pipelines-python.md) - Dagster assets
-- [Dev Mode](guide/dev-mode.md) - Iceberg branches
 - [Testing](guide/testing.md) - Quality checks
 
 </td>
@@ -57,23 +56,36 @@ make up
 # MinIO:      http://localhost:9001 (ratatouille/ratatouille123)
 ```
 
-In Jupyter:
+In Jupyter or your Python code:
 
 ```python
-from ratatouille import rat
+from ratatouille import run, workspace, query, tools
 
-# Ingest data
-df, rows = rat.ice_ingest("landing/data.xlsx", "bronze.sales")
+# Load workspace
+workspace("demo")
 
-# Transform
-rat.transform(
-    sql="SELECT *, qty * price AS total FROM {bronze.sales}",
-    target="silver.sales",
-    merge_keys=["id"]
-)
+# Run a pipeline (defined as SQL/Python files)
+run("silver.sales")
 
-# Query
-df = rat.df("{silver.sales}")
+# Query results
+df = query("SELECT * FROM silver.sales LIMIT 10")
+
+# Explore
+tools.tables()           # List all tables
+tools.preview("gold.metrics")  # Preview data
+```
+
+Or use the CLI:
+
+```bash
+# Run pipelines
+rat run silver.sales
+
+# Query data
+rat query "SELECT * FROM silver.sales LIMIT 10"
+
+# Run tests
+rat test
 ```
 
 ---
@@ -82,7 +94,7 @@ df = rat.df("{silver.sales}")
 
 | Reference | Description |
 |-----------|-------------|
-| [📖 SDK Reference](reference/sdk.md) | `rat.*` Python API |
+| [📖 SDK Reference](reference/sdk.md) | Python API (`run`, `workspace`, `query`, `tools`) |
 | [🖥️ CLI Reference](reference/cli.md) | Command-line interface |
 | [🔧 Environment Variables](reference/environment-variables.md) | All configuration options |
 
@@ -101,8 +113,8 @@ df = rat.df("{silver.sales}")
 
 A **self-hosted data platform** providing:
 
-- 🏠 **Medallion Lakehouse** - Bronze → Silver → Gold with Apache Iceberg
-- ⚡ **Git-like Versioning** - Time travel, branches, and schema evolution
+- 🏠 **Medallion Lakehouse** - Bronze → Silver → Gold with DuckDB + Parquet
+- ⚡ **File-First Pipelines** - Define pipelines as SQL/Python files (like dbt)
 - 📊 **Orchestration** - Dagster for pipeline management
 - 🔬 **Interactive Development** - Jupyter Lab with LSP
 - 📦 **S3-Compatible Storage** - MinIO for object storage
@@ -115,8 +127,8 @@ A **self-hosted data platform** providing:
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | **Storage** | MinIO | S3-compatible object storage |
-| **Lakehouse** | Apache Iceberg | Table format with ACID, time travel |
-| **Catalog** | Nessie | Git-like versioning for Iceberg |
+| **Query Engine** | DuckDB | Fast OLAP analytics |
+| **Format** | Parquet | Columnar storage |
 | **Orchestration** | Dagster | Pipeline management & scheduling |
 | **Development** | Jupyter Lab | Interactive notebooks |
 | **SDK** | Python | Unified data operations API |
@@ -132,14 +144,14 @@ ratatouille/
 ├── Dockerfile              # App container
 │
 ├── src/ratatouille/        # Core SDK
-│   ├── sdk.py              # Main API (rat.*)
-│   ├── triggers/           # Sensors, schedules
-│   ├── testing/            # Test framework
-│   └── docs/               # Doc generation
+│   ├── sdk.py              # Main API (run, workspace, query)
+│   ├── tools/              # Exploration tools
+│   ├── pipeline/           # Pipeline execution
+│   └── workspace/          # Workspace management
 │
 ├── workspaces/             # User workspace area
 │   └── demo/
-│       └── pipelines/      # Your pipelines
+│       └── pipelines/      # Your pipelines (SQL/Python)
 │
 └── docs/                   # This documentation
     ├── deploy/             # Operator docs
@@ -161,7 +173,7 @@ Like Remy the rat proving that "anyone can cook", this project proves that **any
 1. **💸 Low Cost** - Run on a single machine, scale when needed
 2. **🦭 Container-First** - Everything in Docker/Podman, nothing on host
 3. **📦 Batteries Included** - SDK, UI, notebooks all pre-configured
-4. **🎯 OLAP-Focused** - Optimized for analytics, not transactions
+4. **🎯 File-First** - Pipelines as code, version controlled
 
 ---
 

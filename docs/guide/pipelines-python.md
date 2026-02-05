@@ -1,4 +1,4 @@
-# 🔧 Building Pipelines
+# 🐍 Python Pipelines
 
 How to create production-ready data pipelines with Dagster and Ratatouille.
 
@@ -10,12 +10,12 @@ Pipelines in Ratatouille are built with **Dagster assets**. Each asset represent
 
 ```python
 from dagster import asset
-from ratatouille import rat
+from ratatouille import run
 
 @asset
-def my_bronze_data():
-    df, rows = rat.ice_ingest("landing/data.xlsx", "bronze.my_data")
-    return rows
+def my_silver_data():
+    result = run("silver.my_data")
+    return result
 ```
 
 ---
@@ -38,21 +38,8 @@ pipelines/
 │   ├── __init__.py
 │   ├── assets.py
 │   └── checks.py
-├── bk/
-│   └── __init__.py
-└── demo/
+└── sales/
     └── __init__.py
-```
-
-**`pipelines/__init__.py`:**
-```python
-from .example import all_assets as example_assets, all_checks as example_checks
-from .bk import all_assets as bk_assets
-
-all_assets = [*example_assets, *bk_assets]
-all_sensors = []
-all_asset_checks = [*example_checks]
-all_jobs = []
 ```
 
 ### Workspace Pipelines (`workspaces/*/pipelines/`)
@@ -75,7 +62,7 @@ workspaces/
 
 ```python
 from dagster import asset, AssetExecutionContext, MaterializeResult, MetadataValue
-from ratatouille import rat
+from ratatouille import run
 
 @asset(
     # Grouping in Dagster UI
@@ -83,38 +70,34 @@ from ratatouille import rat
 
     # Rich description (supports markdown)
     description="""
-    ## Bronze: Raw Sales Data
+    ## Silver: Cleaned Sales Data
 
-    Ingests Excel files from landing zone.
+    Transforms bronze sales data with cleaning and calculations.
 
-    ### Schema
+    ### Output
     | Column | Type |
     |--------|------|
-    | date | datetime |
+    | date | date |
     | product | string |
+    | total | decimal |
     """,
 
     # Shows icon in UI
-    compute_kind="python",
+    compute_kind="sql",
 
     # For Dagster caching
     code_version="1.0.0",
 )
-def my_bronze(context: AssetExecutionContext) -> MaterializeResult:
-    """Ingest raw data to bronze layer."""
+def my_silver(context: AssetExecutionContext) -> MaterializeResult:
+    """Transform bronze to silver."""
 
-    df, stats = rat.ice_ingest_batch(
-        "landing/sales/",
-        "bronze.sales",
-        skip_existing=True,
-    )
+    result = run("silver.sales")
 
-    context.log.info(f"Ingested {stats['rows']} rows")
+    context.log.info(f"Pipeline completed: {result}")
 
     return MaterializeResult(
         metadata={
-            "rows": MetadataValue.int(stats["rows"]),
-            "files": MetadataValue.int(stats["files"]),
+            "status": MetadataValue.text(result.get("status", "completed")),
         }
     )
 ```
@@ -130,25 +113,11 @@ def my_bronze(context: AssetExecutionContext) -> MaterializeResult:
 def my_silver(context: AssetExecutionContext) -> MaterializeResult:
     """Clean and transform to silver."""
 
-    result = rat.transform(
-        sql="""
-            SELECT
-                toDate(date) AS date,
-                product,
-                toDecimal64(price, 2) AS price,
-                toInt32(quantity) AS quantity,
-                price * quantity AS total
-            FROM {bronze.sales}
-            WHERE quantity > 0
-        """,
-        target="silver.sales",
-        merge_keys=["date", "product"]
-    )
+    result = run("silver.sales")
 
     return MaterializeResult(
         metadata={
-            "inserted": MetadataValue.int(result.get("inserted", 0)),
-            "updated": MetadataValue.int(result.get("updated", 0)),
+            "status": MetadataValue.text("completed"),
         }
     )
 ```
@@ -174,29 +143,31 @@ Rich metadata appears in Dagster UI:
 
 ```python
 from dagster import MetadataValue
+from ratatouille import query
 
-return MaterializeResult(
-    metadata={
-        # Numbers
-        "row_count": MetadataValue.int(1000),
-        "success_rate": MetadataValue.float(0.95),
+@asset
+def my_asset():
+    result = run("silver.sales")
 
-        # Text
-        "status": MetadataValue.text("completed"),
+    # Get row count for metadata
+    df = query("SELECT COUNT(*) as cnt FROM silver.sales")
+    row_count = df['cnt'][0]
 
-        # Paths
-        "output_path": MetadataValue.path("s3://gold/output.parquet"),
+    return MaterializeResult(
+        metadata={
+            # Numbers
+            "row_count": MetadataValue.int(row_count),
 
-        # JSON
-        "stats": MetadataValue.json({"a": 1, "b": 2}),
+            # Text
+            "status": MetadataValue.text("completed"),
 
-        # Markdown (great for previews!)
-        "preview": MetadataValue.md(df.head().to_markdown()),
+            # JSON
+            "result": MetadataValue.json(result),
 
-        # URLs
-        "dashboard": MetadataValue.url("http://grafana/d/123"),
-    }
-)
+            # Markdown (great for previews!)
+            "preview": MetadataValue.md("| col1 | col2 |\n|---|---|"),
+        }
+    )
 ```
 
 ---
@@ -207,18 +178,20 @@ Validate data after materialization.
 
 ```python
 from dagster import asset_check, AssetCheckResult, AssetCheckSeverity, AssetKey
+from ratatouille import query
 
 @asset_check(
     asset=AssetKey("my_silver"),
     description="Table must have data"
 )
 def check_not_empty() -> AssetCheckResult:
-    df = rat.ice_read("silver.sales")
+    df = query("SELECT COUNT(*) as cnt FROM silver.sales")
+    row_count = df['cnt'][0]
 
     return AssetCheckResult(
-        passed=len(df) > 0,
-        metadata={"row_count": len(df)},
-        description=f"Found {len(df)} rows"
+        passed=row_count > 0,
+        metadata={"row_count": row_count},
+        description=f"Found {row_count} rows"
     )
 
 
@@ -227,35 +200,19 @@ def check_not_empty() -> AssetCheckResult:
     description="No nulls in key columns"
 )
 def check_no_nulls() -> AssetCheckResult:
-    df = rat.ice_read("silver.sales")
+    df = query("""
+        SELECT
+            SUM(CASE WHEN date IS NULL THEN 1 ELSE 0 END) as null_date,
+            SUM(CASE WHEN product IS NULL THEN 1 ELSE 0 END) as null_product
+        FROM silver.sales
+    """)
 
-    required = ["date", "product"]
-    nulls = {col: int(df[col].isna().sum()) for col in required}
-    total_nulls = sum(nulls.values())
+    total_nulls = df['null_date'][0] + df['null_product'][0]
 
     return AssetCheckResult(
         passed=total_nulls == 0,
-        metadata={"null_counts": nulls},
+        metadata={"null_counts": {"date": df['null_date'][0], "product": df['null_product'][0]}},
         severity=AssetCheckSeverity.ERROR if total_nulls > 0 else AssetCheckSeverity.WARN
-    )
-
-
-@asset_check(
-    asset=AssetKey("my_silver"),
-    description="Values must be positive"
-)
-def check_positive_values() -> AssetCheckResult:
-    df = rat.ice_read("silver.sales")
-
-    issues = []
-    if (df["quantity"] < 0).any():
-        issues.append("negative quantities")
-    if (df["price"] < 0).any():
-        issues.append("negative prices")
-
-    return AssetCheckResult(
-        passed=len(issues) == 0,
-        metadata={"issues": issues}
     )
 ```
 
@@ -267,6 +224,7 @@ Trigger pipelines when new files arrive.
 
 ```python
 from dagster import sensor, RunRequest, SensorEvaluationContext, DefaultSensorStatus
+from ratatouille import tools
 
 @sensor(
     job=my_pipeline_job,
@@ -276,7 +234,7 @@ from dagster import sensor, RunRequest, SensorEvaluationContext, DefaultSensorSt
 def new_files_sensor(context: SensorEvaluationContext):
     """Watch for new files in landing zone."""
 
-    files = rat.ls("landing/sales/")
+    files = tools.ls("landing/sales/")
 
     # Track which files we've seen
     last_seen = context.cursor or ""
@@ -306,9 +264,9 @@ my_pipeline_job = define_asset_job(
 )
 
 # Specific assets
-bronze_only_job = define_asset_job(
-    name="bronze_only",
-    selection=AssetSelection.assets(my_bronze)
+silver_only_job = define_asset_job(
+    name="silver_only",
+    selection=AssetSelection.assets(my_silver)
 )
 
 # Assets and downstream
@@ -322,30 +280,24 @@ with_downstream = define_asset_job(
 
 ## Complete Pipeline Example
 
-Here's a full production pipeline structure:
-
 ### `pipelines/sales/__init__.py`
 
 ```python
-"""📊 Sales Pipeline - Landing → Bronze → Silver → Gold"""
+"""📊 Sales Pipeline - Bronze → Silver → Gold"""
 
 from .assets import (
     sales_bronze,
     sales_silver,
-    sales_gold_by_product,
-    sales_gold_by_region,
+    sales_gold,
 )
 from .checks import all_checks
-from .sensors import landing_sensor
 from .jobs import sales_pipeline_job
 
 all_assets = [
     sales_bronze,
     sales_silver,
-    sales_gold_by_product,
-    sales_gold_by_region,
+    sales_gold,
 ]
-all_sensors = [landing_sensor]
 all_asset_checks = all_checks
 all_jobs = [sales_pipeline_job]
 ```
@@ -354,33 +306,22 @@ all_jobs = [sales_pipeline_job]
 
 ```python
 from dagster import asset, AssetExecutionContext, MaterializeResult, MetadataValue
-from ratatouille import rat
+from ratatouille import run, query
 
 
 @asset(
     group_name="sales",
-    description="Raw sales data from Excel exports",
+    description="Raw sales data ingestion",
     compute_kind="python",
-    code_version="1.0.0",
 )
 def sales_bronze(context: AssetExecutionContext) -> MaterializeResult:
     """Ingest sales files to bronze layer."""
 
-    df, stats = rat.ice_ingest_batch(
-        "landing/sales/",
-        "bronze.sales",
-        parser="sales_excel",
-        skip_existing=True,
-    )
-
-    context.log.info(f"Files: {stats['files']}, Rows: {stats['rows']}")
+    result = run("bronze.sales")
+    context.log.info(f"Bronze pipeline completed: {result}")
 
     return MaterializeResult(
-        metadata={
-            "files": MetadataValue.int(stats["files"]),
-            "rows": MetadataValue.int(stats["rows"]),
-            "skipped": MetadataValue.int(stats["already_ingested"]),
-        }
+        metadata={"status": MetadataValue.text("completed")}
     )
 
 
@@ -391,31 +332,16 @@ def sales_bronze(context: AssetExecutionContext) -> MaterializeResult:
     compute_kind="sql",
 )
 def sales_silver(context: AssetExecutionContext) -> MaterializeResult:
-    """Transform bronze → silver with cleaning and enrichment."""
+    """Transform bronze → silver with cleaning."""
 
-    result = rat.transform(
-        sql="""
-            SELECT
-                toDate(sale_date) AS date,
-                toString(region) AS region,
-                toString(product_id) AS product_id,
-                toInt32(quantity) AS quantity,
-                toDecimal64(unit_price, 2) AS unit_price,
-                toDecimal64(quantity * unit_price, 2) AS total,
-                toDecimal64(discount, 2) AS discount,
-                toDecimal64((quantity * unit_price) - discount, 2) AS net_total
-            FROM {bronze.sales}
-            WHERE quantity > 0
-              AND unit_price > 0
-        """,
-        target="silver.sales",
-        merge_keys=["date", "region", "product_id"],
-    )
+    result = run("silver.sales")
+
+    # Get row count
+    df = query("SELECT COUNT(*) as cnt FROM silver.sales")
 
     return MaterializeResult(
         metadata={
-            "inserted": MetadataValue.int(result.get("inserted", 0)),
-            "updated": MetadataValue.int(result.get("updated", 0)),
+            "row_count": MetadataValue.int(df['cnt'][0]),
         }
     )
 
@@ -423,65 +349,16 @@ def sales_silver(context: AssetExecutionContext) -> MaterializeResult:
 @asset(
     group_name="sales",
     deps=[sales_silver],
-    description="Daily revenue by product",
+    description="Daily revenue aggregations",
     compute_kind="sql",
 )
-def sales_gold_by_product(context: AssetExecutionContext) -> MaterializeResult:
-    """Aggregate sales by product."""
+def sales_gold(context: AssetExecutionContext) -> MaterializeResult:
+    """Aggregate to gold layer."""
 
-    result = rat.transform(
-        sql="""
-            SELECT
-                date,
-                product_id,
-                SUM(quantity) AS total_quantity,
-                SUM(net_total) AS revenue,
-                COUNT(*) AS transaction_count
-            FROM {silver.sales}
-            GROUP BY date, product_id
-        """,
-        target="gold.sales_by_product",
-        merge_keys=["date", "product_id"],
-    )
-
-    # Also materialize in ClickHouse for BI
-    rat.materialize(
-        "gold_sales_by_product",
-        "warehouse/gold/sales_by_product/data/*.parquet",
-        order_by="date, product_id"
-    )
+    result = run("gold.sales_summary")
 
     return MaterializeResult(
-        metadata={"rows": MetadataValue.int(result.get("rows", 0))}
-    )
-
-
-@asset(
-    group_name="sales",
-    deps=[sales_silver],
-    description="Daily revenue by region",
-    compute_kind="sql",
-)
-def sales_gold_by_region(context: AssetExecutionContext) -> MaterializeResult:
-    """Aggregate sales by region."""
-
-    result = rat.transform(
-        sql="""
-            SELECT
-                date,
-                region,
-                SUM(quantity) AS total_quantity,
-                SUM(net_total) AS revenue,
-                SUM(discount) AS total_discount
-            FROM {silver.sales}
-            GROUP BY date, region
-        """,
-        target="gold.sales_by_region",
-        merge_keys=["date", "region"],
-    )
-
-    return MaterializeResult(
-        metadata={"rows": MetadataValue.int(result.get("rows", 0))}
+        metadata={"status": MetadataValue.text("completed")}
     )
 ```
 
@@ -489,29 +366,19 @@ def sales_gold_by_region(context: AssetExecutionContext) -> MaterializeResult:
 
 ```python
 from dagster import asset_check, AssetCheckResult, AssetKey
-from ratatouille import rat
+from ratatouille import query
 
 
 @asset_check(asset=AssetKey("sales_silver"))
 def silver_not_empty() -> AssetCheckResult:
-    df = rat.ice_read("silver.sales")
+    df = query("SELECT COUNT(*) as cnt FROM silver.sales")
     return AssetCheckResult(
-        passed=len(df) > 0,
-        metadata={"row_count": len(df)}
+        passed=df['cnt'][0] > 0,
+        metadata={"row_count": df['cnt'][0]}
     )
 
 
-@asset_check(asset=AssetKey("sales_silver"))
-def silver_no_negative_totals() -> AssetCheckResult:
-    df = rat.ice_read("silver.sales")
-    negatives = (df["net_total"] < 0).sum()
-    return AssetCheckResult(
-        passed=negatives == 0,
-        metadata={"negative_count": int(negatives)}
-    )
-
-
-all_checks = [silver_not_empty, silver_no_negative_totals]
+all_checks = [silver_not_empty]
 ```
 
 ### `pipelines/sales/jobs.py`
@@ -528,100 +395,37 @@ sales_pipeline_job = define_asset_job(
 
 ---
 
-## Custom Parsers
-
-For messy file formats, create parsers:
-
-### `src/ratatouille/parsers/sales.py`
-
-```python
-from io import BytesIO
-from datetime import datetime
-import pandas as pd
-
-
-def parse_sales_excel(data: BytesIO, filename: str) -> pd.DataFrame:
-    """Parse messy sales Excel export.
-
-    Input format:
-    - Row 0-4: Header junk
-    - Row 5: Column names
-    - Row 6+: Data
-    """
-    df = pd.read_excel(data, skiprows=5)
-
-    # Rename columns
-    df = df.rename(columns={
-        "Sale Date": "sale_date",
-        "Region Code": "region",
-        "Product SKU": "product_id",
-        "Qty": "quantity",
-        "Price": "unit_price",
-        "Disc": "discount",
-    })
-
-    # Add metadata
-    df["_source_file"] = filename
-    df["_ingested_at"] = datetime.utcnow()
-
-    return df
-```
-
-### Register in `src/ratatouille/parsers/__init__.py`
-
-```python
-from .example import parse_sales
-from .sales import parse_sales_excel
-
-PARSERS = {
-    "my_parser": parse_sales,
-    "sales_excel": parse_sales_excel,  # Add here
-}
-```
-
----
-
 ## Best Practices
 
-### 1. Use Merge Keys for Idempotency
+### 1. Use File-First for Transforms
 
 ```python
-# ✅ Good - idempotent, can re-run safely
-rat.transform(sql, target="silver.x", merge_keys=["id", "date"])
+# ✅ Good - use pipeline files for SQL logic
+result = run("silver.sales")
 
-# ❌ Bad - duplicates data on re-run
-rat.transform(sql, target="silver.x", mode="append")
+# ❌ Avoid - embedding SQL in Python
+df = query("SELECT * FROM bronze.sales WHERE ...")
 ```
 
-### 2. Track File Ingestion
+### 2. Log Meaningfully
 
 ```python
-# ✅ Production - skip already processed files
-rat.ice_ingest_batch(..., skip_existing=True)
-
-# ❌ Dev only - re-processes everything
-rat.ice_ingest_batch(..., skip_existing=False)
-```
-
-### 3. Log Meaningfully
-
-```python
-context.log.info(f"Ingested {rows} rows from {files} files")
+context.log.info(f"Pipeline completed: {result}")
 context.log.warning(f"Skipped {errors} files with errors")
 ```
 
-### 4. Return Rich Metadata
+### 3. Return Rich Metadata
 
 ```python
 return MaterializeResult(
     metadata={
-        "rows": MetadataValue.int(len(df)),
-        "preview": MetadataValue.md(df.head().to_markdown()),  # Shows in UI!
+        "rows": MetadataValue.int(row_count),
+        "status": MetadataValue.text("completed"),
     }
 )
 ```
 
-### 5. Group Related Assets
+### 4. Group Related Assets
 
 ```python
 @asset(group_name="sales", ...)  # All sales assets together
@@ -631,7 +435,7 @@ def sales_bronze(): ...
 def sales_silver(): ...
 ```
 
-### 6. Version Your Code
+### 5. Version Your Code
 
 ```python
 @asset(code_version="1.2.0", ...)  # Bump when logic changes
@@ -651,14 +455,11 @@ def my_asset(): ...
 ### CLI
 
 ```bash
-# All assets
-make run
+# Run specific pipeline
+rat run silver.sales
 
-# Specific asset
-docker compose exec dagster dagster asset materialize --select "sales_bronze"
-
-# Asset and downstream
-docker compose exec dagster dagster asset materialize --select "sales_bronze+"
+# Run with full refresh
+rat run silver.sales -f
 ```
 
 ### Programmatically

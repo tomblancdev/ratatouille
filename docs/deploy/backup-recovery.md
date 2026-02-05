@@ -176,18 +176,17 @@ services:
 
 ## Point-in-Time Recovery
 
-Iceberg tables support time travel, so you can recover data without backups:
+DuckDB with Parquet provides file-level recovery through MinIO versioning:
 
-```python
-from ratatouille import rat
+```bash
+# Check MinIO versioning (if enabled)
+mc ls --versions minio/warehouse/bronze/sales/
 
-# View history
-history = rat.ice_history("bronze.sales")
-print(history)
-
-# Read old version
-old_df = rat.ice_time_travel("bronze.sales", snapshot_id=12345678)
+# Restore a specific version
+mc cp --version-id=<version> minio/warehouse/bronze/sales/data.parquet ./restored.parquet
 ```
+
+Or query data as of a specific time using file timestamps.
 
 ---
 

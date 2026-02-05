@@ -12,7 +12,6 @@
 | Set up workspaces | [Workspaces](workspaces.md) |
 | Write SQL pipelines | [SQL Pipelines (dbt-style)](pipelines-sql.md) |
 | Write Python pipelines | [Python Pipelines (Dagster)](pipelines-python.md) |
-| Use Iceberg branches | [Dev Mode](dev-mode.md) |
 | Schedule pipelines | [Triggers](triggers.md) |
 | Test pipelines | [Testing](testing.md) |
 | Generate docs | [Documentation](documentation.md) |
@@ -24,20 +23,21 @@
 ## Quick Start
 
 ```python
-from ratatouille import rat
+from ratatouille import run, workspace, query, tools
 
-# Ingest raw data
-df, rows = rat.ice_ingest("landing/sales.xlsx", "bronze.sales")
+# Load workspace
+workspace("demo")
 
-# Transform with SQL
-rat.transform(
-    sql="SELECT *, qty * price AS total FROM {bronze.sales}",
-    target="silver.sales",
-    merge_keys=["id"]
-)
+# Run a pipeline (defined as SQL/Python files)
+run("silver.sales")
 
-# Read results
-df = rat.df("{silver.sales}")
+# Query results
+df = query("SELECT * FROM silver.sales LIMIT 10")
+
+# Explore
+tools.tables()                    # List all tables
+tools.schema("silver.sales")      # Get schema
+tools.preview("gold.metrics")     # Preview data
 ```
 
 See [Getting Started](getting-started.md) for the full tutorial.
@@ -55,7 +55,6 @@ See [Getting Started](getting-started.md) for the full tutorial.
 
 - **[SQL Pipelines](pipelines-sql.md)** - dbt-style YAML/SQL pipelines
 - **[Python Pipelines](pipelines-python.md)** - Dagster asset pipelines
-- **[Dev Mode](dev-mode.md)** - Isolated development with Iceberg branches
 
 ### Running & Monitoring
 
@@ -70,47 +69,28 @@ See [Getting Started](getting-started.md) for the full tutorial.
 
 ---
 
-## Pipeline Approaches
+## File-First Architecture
 
-### SQL-First (dbt-style)
+Ratatouille follows a **file-first** approach like dbt:
 
 ```
-pipelines/
-└── silver/
-    ├── sales.sql       # SQL transformation
-    └── sales.yaml      # Schema & tests
+workspaces/
+└── my-workspace/
+    ├── workspace.yaml           # Workspace config
+    ├── pipelines/
+    │   ├── bronze/              # Raw data ingestion
+    │   │   └── sales.sql
+    │   ├── silver/              # Cleaned/transformed
+    │   │   └── sales.sql
+    │   └── gold/                # Business-ready
+    │       └── daily_kpis.sql
+    └── tests/
+        └── quality/             # Data quality tests
 ```
 
-```sql
--- @materialized: incremental
--- @unique_key: txn_id
-
-SELECT * FROM {{ ref('bronze.raw_sales') }}
-WHERE quantity > 0
-{% if is_incremental() %}
-  AND updated_at > '{{ watermark("updated_at") }}'
-{% endif %}
-```
-
-See [SQL Pipelines](pipelines-sql.md).
-
-### Python-First (Dagster)
-
-```python
-from dagster import asset
-from ratatouille import rat
-
-@asset(group_name="sales", deps=[bronze_sales])
-def silver_sales(context):
-    result = rat.transform(
-        sql="SELECT * FROM {bronze.sales} WHERE qty > 0",
-        target="silver.sales",
-        merge_keys=["id"]
-    )
-    return result
-```
-
-See [Python Pipelines](pipelines-python.md).
+**Pipeline files** = SQL or Python + YAML config
+**SDK** = Run pipelines, explore data
+**CLI** = Same operations from terminal
 
 ---
 
@@ -125,9 +105,9 @@ See [Python Pipelines](pipelines-python.md).
 
 | Layer | Purpose | Example |
 |-------|---------|---------|
-| **Bronze** | Raw, immutable, as-is | `rat.ice_ingest(...)` |
-| **Silver** | Cleaned, validated, typed | `rat.transform(...)` |
-| **Gold** | Business aggregations, KPIs | `rat.transform(...)` |
+| **Bronze** | Raw, immutable, as-is | `pipelines/bronze/ingest.sql` |
+| **Silver** | Cleaned, validated, typed | `pipelines/silver/sales.sql` |
+| **Gold** | Business aggregations, KPIs | `pipelines/gold/daily_kpis.sql` |
 
 ---
 
@@ -137,10 +117,9 @@ See [Python Pipelines](pipelines-python.md).
 ┌─────────────────────────────────────────────────────────────────┐
 │  1. EXPLORE               2. DEVELOP              3. DEPLOY     │
 │  ─────────────────────    ──────────────────      ───────────   │
-│  Jupyter notebook         Dev branch              Merge to main │
-│  rat.query()              rat.dev_start()         rat.dev_merge()│
-│  rat.df()                 rat.transform()         Dagster runs   │
-│                           rat.test()              Monitoring     │
+│  Jupyter notebook         Edit pipeline files     Commit & push │
+│  tools.tables()           Write SQL/Python        Dagster runs  │
+│  query("SELECT ...")      rat test                Monitoring    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -148,32 +127,45 @@ See [Python Pipelines](pipelines-python.md).
 
 ## Key Concepts
 
-### Iceberg Tables
+### Pipeline Files
 
-All data stored in Apache Iceberg tables:
-- ✅ ACID transactions
-- ✅ Time travel
-- ✅ Schema evolution
-- ✅ Branching (dev mode)
+Define pipelines as SQL or Python files with YAML config:
 
-### Merge Keys
-
-Use merge keys for idempotent pipelines:
-
-```python
-rat.transform(
-    sql="SELECT * FROM {bronze.sales}",
-    target="silver.sales",
-    merge_keys=["date", "product_id"]  # Upsert on these columns
-)
+```sql
+-- pipelines/silver/sales.sql
+SELECT
+    date,
+    product,
+    quantity * price AS total
+FROM {{ ref('bronze.sales') }}
+WHERE quantity > 0
 ```
 
-### Placeholder Syntax
+```yaml
+# pipelines/silver/sales.yaml
+name: sales
+layer: silver
+materialization: incremental
+unique_key: [date, product]
+```
 
-Reference tables with `{namespace.table}`:
+### Running Pipelines
 
 ```python
-rat.query("SELECT * FROM {silver.sales} WHERE total > 100")
+from ratatouille import run
+
+# Run a single pipeline
+run("silver.sales")
+
+# Full refresh (rebuild from scratch)
+run("silver.sales", full_refresh=True)
+```
+
+Or via CLI:
+
+```bash
+rat run silver.sales
+rat run silver.sales -f  # Full refresh
 ```
 
 ---

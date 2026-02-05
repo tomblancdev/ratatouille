@@ -8,7 +8,8 @@
 
 | Reference | Description |
 |-----------|-------------|
-| [SDK](sdk.md) | `rat.*` Python API |
+| [SDK](sdk.md) | Python API (`run`, `workspace`, `query`) |
+| [Tools](tools.md) | Exploration functions (`tools.*`) |
 | [CLI](cli.md) | Command-line interface |
 | [Environment Variables](environment-variables.md) | All configuration options |
 | [Config YAML](config-yaml.md) | Pipeline configuration schema |
@@ -21,27 +22,25 @@
 ## SDK Quick Reference
 
 ```python
-from ratatouille import rat
+from ratatouille import run, workspace, query, tools
 
-# === Read ===
-rat.df("{bronze.table}")           # Read Iceberg table
-rat.query("SELECT * FROM ...")     # SQL query
-rat.read("bucket/path.parquet")    # Read Parquet from S3
+# === Core Functions ===
+workspace("analytics")            # Load workspace
+run("silver.sales")               # Run pipeline
+run("gold.kpis", full_refresh=True)  # Full refresh
+df = query("SELECT * FROM ...")   # Execute SQL
 
-# === Write ===
-rat.ice_ingest(source, target)     # File → Iceberg
-rat.transform(sql, target)         # SQL → Iceberg
-rat.write(df, path)                # DataFrame → S3
+# === Exploration (tools) ===
+tools.info()                      # Workspace info
+tools.tables()                    # List all tables
+tools.layers()                    # Show medallion layers
+tools.schema("silver.sales")      # Table schema
+tools.preview("gold.metrics")     # Preview data
 
-# === Iceberg ===
-rat.ice_all()                      # List all tables
-rat.ice_history(table)             # Time travel history
-rat.ice_drop(table)                # Delete table
-
-# === Dev Mode ===
-rat.dev_start(branch)              # Create branch
-rat.dev_merge()                    # Merge to main
-rat.dev_drop()                     # Abandon branch
+# === S3 Operations (tools) ===
+tools.ls("bronze/")               # List files
+tools.tree()                      # Folder structure
+tools.s3_uri("silver", "events")  # Get S3 URI
 ```
 
 See [SDK Reference](sdk.md) for complete documentation.

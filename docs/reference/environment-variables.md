@@ -284,13 +284,13 @@ JUPYTER_MEMORY=4G
 docker compose exec dagster env | grep -E "(MINIO|NESSIE|S3|RAT)"
 
 # Or in Python
-from ratatouille import rat
-print(rat.debug_env())  # Shows all relevant env vars
+from ratatouille import tools
+tools.info()  # Shows workspace and environment info
 ```
 
 ### Override for Testing
 
 ```bash
 # Temporary override
-S3_ENDPOINT=http://different-host:9000 docker compose exec dagster rat query "SHOW TABLES"
+RATATOUILLE_WORKSPACE=test rat run silver.sales
 ```

@@ -228,13 +228,13 @@ resources:
   duckdb_memory_mb: 16384  # Max DuckDB memory
 ```
 
-### Iceberg Compaction
+### Parquet File Optimization
 
-Schedule regular compaction:
+For large tables, periodically optimize file sizes:
 
-```python
-# Compact small files
-rat.ice_compact("bronze.sales")
+```bash
+# Use DuckDB to rewrite and optimize Parquet files
+rat query "COPY (SELECT * FROM bronze.sales) TO 's3://warehouse/bronze/sales/optimized.parquet'"
 ```
 
 ---
