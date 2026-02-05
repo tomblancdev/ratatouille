@@ -12,6 +12,7 @@
 | [Architecture](architecture.md) | System design, tech stack, data flow |
 | [SDK Reference](sdk-reference.md) | Complete API reference for `rat.*` |
 | [Building Pipelines](pipelines.md) | How to create Dagster assets & jobs |
+| [Testing Pipelines](guides/testing.md) | Quality tests, unit tests, mock data |
 | [Dev Mode](dev-mode.md) | Iceberg branches for isolated development |
 | [Operations](operations.md) | Running, monitoring, troubleshooting |
 
@@ -187,3 +188,4 @@ Like Remy the rat proving that "anyone can cook", this project proves that **any
 1. **[Getting Started](getting-started.md)** - Setup and first pipeline
 2. **[SDK Reference](sdk-reference.md)** - Learn all `rat.*` methods
 3. **[Building Pipelines](pipelines.md)** - Production-ready Dagster assets
+4. **[Testing Pipelines](guides/testing.md)** - Quality checks and unit tests
