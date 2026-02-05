@@ -13,6 +13,7 @@
 | [SDK Reference](sdk-reference.md) | Complete API reference for `rat.*` |
 | [Building Pipelines](pipelines.md) | How to create Dagster assets & jobs |
 | [Testing Pipelines](guides/testing.md) | Quality tests, unit tests, mock data |
+| [Documentation](guides/documentation.md) | Auto-generate and validate pipeline docs |
 | [Dev Mode](dev-mode.md) | Iceberg branches for isolated development |
 | [Operations](operations.md) | Running, monitoring, troubleshooting |
 
@@ -189,3 +190,4 @@ Like Remy the rat proving that "anyone can cook", this project proves that **any
 2. **[SDK Reference](sdk-reference.md)** - Learn all `rat.*` methods
 3. **[Building Pipelines](pipelines.md)** - Production-ready Dagster assets
 4. **[Testing Pipelines](guides/testing.md)** - Quality checks and unit tests
+5. **[Documentation](guides/documentation.md)** - Auto-generate pipeline docs

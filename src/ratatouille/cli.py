@@ -3,11 +3,13 @@
 🐀 Ratatouille CLI - Anyone Can Data!
 
 Usage:
-    rat init <name>     Create a new workspace
-    rat run <pipeline>  Run a pipeline
-    rat query <sql>     Execute SQL query
-    rat test            Run pipeline tests
-    rat --help          Show help
+    rat init <name>        Create a new workspace
+    rat run <pipeline>     Run a pipeline
+    rat query <sql>        Execute SQL query
+    rat test               Run pipeline tests
+    rat docs generate      Generate pipeline documentation
+    rat docs check         Validate documentation completeness
+    rat --help             Show help
 """
 
 import argparse
@@ -111,6 +113,113 @@ def run_query(sql: str) -> None:
         sys.exit(1)
 
 
+def generate_docs(
+    workspace: str | None = None,
+    pipeline: str | None = None,
+) -> None:
+    """Generate documentation for pipelines.
+
+    Args:
+        workspace: Workspace name or path
+        pipeline: Specific pipeline (e.g., "silver/sales")
+    """
+    from ratatouille.docs import DocumentationGenerator
+
+    # Determine workspace path
+    workspace_path = _resolve_workspace_path(workspace)
+
+    if not workspace_path.exists():
+        console.print(f"[red]Error:[/red] Workspace not found: {workspace_path}")
+        sys.exit(1)
+
+    console.print(f"📚 Generating documentation for [cyan]{workspace_path.name}[/cyan]...")
+    console.print()
+
+    generator = DocumentationGenerator(workspace_path, console)
+
+    if pipeline:
+        result = generator.generate_for_pipeline(pipeline)
+        results = [result]
+    else:
+        results = generator.generate_all()
+
+    # Report results
+    total_created = sum(len(r.files_created) for r in results)
+    total_updated = sum(len(r.files_updated) for r in results)
+    errors = [r for r in results if r.errors]
+
+    for result in results:
+        if result.errors:
+            console.print(f"[red]❌ {result.pipeline}[/red]")
+            for error in result.errors:
+                console.print(f"   {error}")
+        else:
+            created = len(result.files_created)
+            updated = len(result.files_updated)
+            console.print(f"[green]✅ {result.pipeline}[/green] ({created} created, {updated} updated)")
+
+    console.print()
+    console.print(f"[bold]📊 Summary:[/bold] {len(results)} pipelines | {total_created} created | {total_updated} updated")
+
+    if errors:
+        console.print(f"[bold red]{len(errors)} pipeline(s) had errors[/bold red]")
+        sys.exit(1)
+    else:
+        console.print("[bold green]Documentation generated successfully! 🎉[/bold green]")
+
+
+def check_docs(
+    workspace: str | None = None,
+    strict: bool = False,
+    verbose: bool = False,
+) -> None:
+    """Check documentation completeness.
+
+    Args:
+        workspace: Workspace name or path
+        strict: Treat warnings as errors
+        verbose: Show all pipelines, not just failures
+    """
+    from ratatouille.docs import CompletenessValidator
+
+    # Determine workspace path
+    workspace_path = _resolve_workspace_path(workspace)
+
+    if not workspace_path.exists():
+        console.print(f"[red]Error:[/red] Workspace not found: {workspace_path}")
+        sys.exit(1)
+
+    validator = CompletenessValidator(workspace_path, console)
+    results = validator.validate_all(strict=strict)
+
+    validator.print_results(results, verbose=verbose)
+
+    # Exit with error if any failures
+    if strict:
+        if not all(r.passed_strict for r in results):
+            sys.exit(1)
+    else:
+        if not all(r.passed for r in results):
+            sys.exit(1)
+
+
+def _resolve_workspace_path(workspace: str | None) -> Path:
+    """Resolve workspace name/path to actual path."""
+    if workspace:
+        workspace_path = Path(workspace)
+        if not workspace_path.is_absolute():
+            # Try as workspace name in workspaces/
+            workspaces_dir = Path.cwd() / "workspaces"
+            if (workspaces_dir / workspace).exists():
+                workspace_path = workspaces_dir / workspace
+            else:
+                workspace_path = Path.cwd() / workspace
+    else:
+        workspace_path = get_workspace_path()
+
+    return workspace_path
+
+
 def run_tests(
     workspace: str | None = None,
     pipeline: str | None = None,
@@ -194,6 +303,9 @@ Examples:
   rat test                     Run all tests in current workspace
   rat test -w demo             Run tests for demo workspace
   rat test -p sales -t quality Run quality tests for sales pipeline
+  rat docs generate -w demo    Generate docs for demo workspace
+  rat docs check -w demo       Validate docs completeness
+  rat docs check --strict      Treat warnings as errors
         """,
     )
 
@@ -256,6 +368,38 @@ Examples:
         help="Stop on first failure"
     )
 
+    # docs command group
+    docs_parser = subparsers.add_parser("docs", help="Generate and validate documentation")
+    docs_subparsers = docs_parser.add_subparsers(dest="docs_command", help="Documentation commands")
+
+    # docs generate
+    docs_gen_parser = docs_subparsers.add_parser("generate", help="Generate documentation")
+    docs_gen_parser.add_argument(
+        "--workspace", "-w",
+        help="Workspace name or path (default: current workspace)"
+    )
+    docs_gen_parser.add_argument(
+        "--pipeline", "-p",
+        help="Generate for specific pipeline (e.g., 'silver/sales')"
+    )
+
+    # docs check
+    docs_check_parser = docs_subparsers.add_parser("check", help="Validate documentation completeness")
+    docs_check_parser.add_argument(
+        "--workspace", "-w",
+        help="Workspace name or path (default: current workspace)"
+    )
+    docs_check_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Treat warnings as errors"
+    )
+    docs_check_parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show all pipelines, not just failures"
+    )
+
     # version
     parser.add_argument("--version", action="version", version="%(prog)s 2.0.0")
 
@@ -278,6 +422,20 @@ Examples:
             verbose=args.verbose,
             fail_fast=args.fail_fast,
         )
+    elif args.command == "docs":
+        if args.docs_command == "generate":
+            generate_docs(
+                workspace=args.workspace,
+                pipeline=args.pipeline,
+            )
+        elif args.docs_command == "check":
+            check_docs(
+                workspace=args.workspace,
+                strict=args.strict,
+                verbose=args.verbose,
+            )
+        else:
+            docs_parser.print_help()
     else:
         parser.print_help()
 

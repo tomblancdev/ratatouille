@@ -1,53 +1,76 @@
 # Sales Pipeline
 
+> 🐀 Auto-generated documentation | Last updated: 2026-02-05
+
+**Tags:** `sales` `finance` `daily` `pos`
+
 ## Overview
 
-Transforms raw POS transactions from `bronze.raw_sales` into cleaned, validated sales records.
+Cleaned and validated POS sales transactions.
 
-## Dependencies
-
-- `bronze.raw_sales` - Raw transaction data from POS system ingestion
-
-## Transformations
-
-1. **Validation**: Filters out invalid records
-   - `quantity > 0` - No zero/negative quantities
-   - `unit_price > 0` - No free items
-   - `txn_id IS NOT NULL` - Must have transaction ID
-
-2. **Enrichment**: Adds calculated fields
-   - `total_amount = quantity * unit_price`
-   - `_date = DATE(transaction_time)` - Partition column
-   - `_processed_at = NOW()` - Processing timestamp
-
-3. **Normalization**: Standardizes text
-   - `product_name` - UPPERCASE
-   - `category` - UPPERCASE
-   - `payment_method` - UPPERCASE
-
-## Schedule
-
-- **Primary trigger**: S3 sensor on `bronze/sales/` (checks every 60 seconds)
-- **Backup**: Hourly schedule
-- **Materialization**: Incremental (by `_ingested_at`)
-
-## Data Quality
-
-| Check | Description | Severity |
-|-------|-------------|----------|
-| `unique_txn` | Transaction IDs must be unique | Error |
-| `positive_amounts` | Quantities and prices must be positive | Error |
-| `total_calculation` | total_amount = quantity * unit_price | Error |
-
-## Freshness SLA
-
-- **Warning**: 6 hours
-- **Error**: 24 hours
+Transformations:
+- Filters invalid records (quantity <= 0, price <= 0)
+- Standardizes text to uppercase
+- Calculates total_amount
+- Partitioned by date
 
 ## Owner
 
-data-team@acme.com
+- **Team:** data-platform
+- **Email:** data-team@acme.com
+- **Slack:** #data-alerts
 
-## Schema
+## Dependencies
 
-See [Data Dictionary](docs/data_dictionary.md)
+### Upstream
+- `bronze.raw_sales`
+
+### Downstream
+- `gold.daily_sales`
+
+## Freshness SLA
+
+- **Warning:** 6 hour(s)
+- **Error:** 24 hour(s)
+
+## ⚠️ PII Notice
+
+This pipeline contains personally identifiable information (PII):
+
+- `customer_id` (customer_id): Customer identifier (linked to customer records)
+
+## Documentation
+
+- [Data Dictionary](docs/data_dictionary.md) - Column definitions and types
+- [Business Rules](docs/business_rules.md) - Data validation logic
+- [Lineage](docs/lineage.md) - Dependency diagram
+
+## Schema Summary
+
+| Column | Type | Required | Unique |
+|--------|------|----------|--------|
+| `txn_id` | string | ✓ | ✓ |
+| `store_id` | string | ✓ |  |
+| `product_id` | string | ✓ |  |
+| `product_name` | string |  |  |
+| `category` | string |  |  |
+| `quantity` | int | ✓ |  |
+| `unit_price` | decimal(10,2) | ✓ |  |
+| `total_amount` | decimal(12,2) | ✓ |  |
+| `payment_method` | string |  |  |
+| `customer_id` | string |  |  |
+| ... | *4 more columns* | | |
+
+See [Data Dictionary](docs/data_dictionary.md) for full schema.
+
+<!-- MANUAL CONTENT START -->
+## Custom Notes by Tom
+
+This section should be preserved when re-running `rat docs generate`.
+
+### Important Contact
+For urgent issues, contact the on-call team at #data-oncall.
+
+### Historical Context
+This pipeline was migrated from the legacy ETL system in Q1 2024.
+<!-- MANUAL CONTENT END -->
