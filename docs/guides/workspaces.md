@@ -285,6 +285,104 @@ workspaces/
 └── fraud-detection/       # Fraud detection project
 ```
 
+## Mounting External Workspaces
+
+You can mount workspaces from anywhere on your filesystem using Docker/Podman volumes. This is useful for:
+
+- Keeping workspaces in project-specific directories
+- Working with client projects in separate locations
+- Sharing workspaces across multiple Ratatouille installations
+
+### Basic Volume Mount
+
+Add volume mounts to your `docker-compose.yml`:
+
+```yaml
+services:
+  dagster:
+    volumes:
+      - ./src:/app/src
+      - ./workspaces:/app/workspaces
+      # Mount external workspaces 👇
+      - /home/tom/projects/analytics:/app/workspaces/analytics
+      - /home/tom/clients/acme:/app/workspaces/acme
+      - ~/finance-data:/app/workspaces/finance
+
+  jupyter:
+    volumes:
+      - ./src:/app/src
+      - ./workspaces:/app/workspaces
+      # Same mounts for Jupyter 👇
+      - /home/tom/projects/analytics:/app/workspaces/analytics
+      - /home/tom/clients/acme:/app/workspaces/acme
+      - ~/finance-data:/app/workspaces/finance
+```
+
+Then access them normally:
+
+```bash
+rat test -w analytics
+rat docs generate -w acme
+rat test -w finance
+```
+
+### Using docker-compose.override.yml
+
+Keep custom mounts separate from the main config using an override file:
+
+```yaml
+# docker-compose.override.yml (add to .gitignore)
+services:
+  dagster:
+    volumes:
+      - /home/tom/projects/analytics:/app/workspaces/analytics
+      - /home/tom/clients/acme:/app/workspaces/acme
+
+  jupyter:
+    volumes:
+      - /home/tom/projects/analytics:/app/workspaces/analytics
+      - /home/tom/clients/acme:/app/workspaces/acme
+```
+
+Docker Compose automatically merges `docker-compose.override.yml` with the main file.
+
+### Environment-Based Mounts
+
+Use environment variables for flexible paths:
+
+```yaml
+# docker-compose.yml
+services:
+  dagster:
+    volumes:
+      - ${ANALYTICS_PATH:-./workspaces/analytics}:/app/workspaces/analytics
+      - ${FINANCE_PATH:-./workspaces/finance}:/app/workspaces/finance
+```
+
+```bash
+# .env
+ANALYTICS_PATH=/home/tom/projects/analytics
+FINANCE_PATH=/home/tom/clients/acme/finance
+```
+
+### Mount Patterns
+
+| Pattern | Use Case |
+|---------|----------|
+| `./workspaces:/app/workspaces` | Default - local workspaces folder |
+| `/abs/path:/app/workspaces/name` | Mount external directory as workspace |
+| `~/projects/foo:/app/workspaces/foo` | Mount from home directory |
+| `${VAR}:/app/workspaces/name` | Dynamic path from environment |
+
+### Important Notes
+
+1. **Both services need mounts** - Add the same volumes to both `dagster` and `jupyter` services
+2. **Workspace name = mount name** - The directory name under `/app/workspaces/` becomes the workspace name
+3. **Permissions** - Ensure the container user can read/write the mounted directory
+4. **Restart required** - Run `podman compose down && podman compose up -d` after changing mounts
+
+---
+
 ## Best Practices
 
 ### 1. One Workspace Per Team/Project
