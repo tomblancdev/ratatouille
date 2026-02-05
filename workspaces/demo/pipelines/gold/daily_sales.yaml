@@ -1,0 +1,60 @@
+# 🐀 Gold Daily Sales Configuration
+
+description: |
+  Daily sales KPIs aggregated by store.
+
+  Use Cases:
+  - Executive dashboards
+  - Store performance comparison
+  - Revenue trend analysis
+  - Customer behavior insights
+
+owner: analytics-team@acme.com
+
+columns:
+  - name: sale_date
+    type: date
+    description: Date of sales
+    tests: [not_null]
+
+  - name: store_id
+    type: string
+    description: Store identifier
+    tests: [not_null]
+
+  - name: total_transactions
+    type: int
+    description: Number of transactions
+    tests: [not_null, positive]
+
+  - name: total_items_sold
+    type: int
+    description: Total quantity of items sold
+    tests: [not_null]
+
+  - name: total_revenue
+    type: decimal(14,2)
+    description: Total revenue for the day
+    tests: [not_null]
+
+  - name: avg_transaction_value
+    type: decimal(10,2)
+    description: Average transaction value
+
+  - name: unique_customers
+    type: int
+    description: Distinct customers who made purchases
+
+  - name: unique_products
+    type: int
+    description: Distinct products sold
+
+  - name: top_category
+    type: string
+    description: Most popular product category
+
+freshness:
+  warn_after:
+    hours: 12
+  error_after:
+    hours: 36

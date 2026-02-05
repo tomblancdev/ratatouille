@@ -1,0 +1,52 @@
+# 🐀 Ratatouille Demo Workspace
+# Showcases: Bronze → Silver → Gold flow with two scenarios
+
+name: demo
+version: "1.0"
+description: |
+  Demo workspace showcasing Ratatouille features:
+  - POS Sales: Transaction data → Daily KPIs
+  - Web Analytics: Event tracking → Page/Device metrics
+  - Data Products: Cross-workspace sharing
+
+# Isolation settings
+isolation:
+  nessie_branch: "workspace/demo"
+  s3_prefix: "demo"
+
+# Resource configuration
+resources:
+  profile: small
+  overrides: {}
+
+# Medallion layer configuration
+layers:
+  bronze:
+    retention_days: 90
+    partition_by: [_ingested_date]
+  silver:
+    retention_days: 365
+    partition_by: [_date]
+  gold:
+    retention_days: null
+
+# Data products this workspace publishes
+products:
+  - name: daily_sales_kpis
+    source: gold.daily_sales
+    access:
+      - workspace: "*"
+        level: read
+    sla:
+      freshness_hours: 24
+
+  - name: web_analytics
+    source: gold.events_by_page
+    access:
+      - workspace: "*"
+        level: read
+    sla:
+      freshness_hours: 12
+
+# No subscriptions (this is the source workspace)
+subscriptions: []

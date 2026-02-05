@@ -1,0 +1,27 @@
+# 🐀 Ratatouille Resource Profile: SMALL (Default)
+# Target: 20GB RAM VMs
+
+description: "Balanced profile for typical self-hosted setups"
+
+resources:
+  # Memory limits
+  max_memory_mb: 4096          # Max memory per pipeline operation
+  duckdb_memory_mb: 8192       # DuckDB total memory limit
+
+  # Processing
+  chunk_size_rows: 50000       # Moderate chunk size
+  max_parallel_pipelines: 2    # 2 concurrent pipelines
+
+  # DuckDB settings
+  duckdb:
+    threads: 2
+    memory_limit: "8GB"
+    temp_directory: "/tmp/duckdb"
+    preserve_insertion_order: true
+
+  # Container limits
+  containers:
+    minio_memory: "1G"
+    nessie_memory: "768M"
+    dagster_memory: "2G"
+    jupyter_memory: "2G"

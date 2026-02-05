@@ -1,0 +1,27 @@
+# 🐀 Ratatouille Resource Profile: TINY
+# Target: 4GB RAM VMs, Raspberry Pi, etc.
+
+description: "Minimal footprint for resource-constrained environments"
+
+resources:
+  # Memory limits
+  max_memory_mb: 1024          # Max memory per pipeline operation
+  duckdb_memory_mb: 2048       # DuckDB total memory limit
+
+  # Processing
+  chunk_size_rows: 10000       # Process data in small chunks
+  max_parallel_pipelines: 1    # Only one pipeline at a time
+
+  # DuckDB settings
+  duckdb:
+    threads: 1
+    memory_limit: "2GB"
+    temp_directory: "/tmp/duckdb"
+    preserve_insertion_order: false  # Faster writes
+
+  # Container limits (if using docker-compose)
+  containers:
+    minio_memory: "512M"
+    nessie_memory: "384M"
+    dagster_memory: "1G"
+    jupyter_memory: "1G"

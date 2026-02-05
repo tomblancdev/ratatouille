@@ -1,0 +1,47 @@
+# 🐀 Ratatouille Workspace Image
+# Pre-built image with all dependencies for fast devcontainer startup
+#
+# Build: make build-workspace
+# Use:   In devcontainer.json, set "image": "ratatouille-workspace:latest"
+
+FROM python:3.11-slim
+
+LABEL org.opencontainers.image.title="Ratatouille Workspace"
+LABEL org.opencontainers.image.description="Pre-built development environment for Ratatouille workspaces"
+LABEL org.opencontainers.image.source="https://github.com/ratatouille-data/ratatouille"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user (matches vscode user in devcontainers)
+RUN useradd -m -s /bin/bash vscode \
+    && mkdir -p /workspace \
+    && chown -R vscode:vscode /workspace
+
+WORKDIR /app
+
+# Copy and install ratatouille
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+
+# Install ratatouille with all dependencies
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# Install additional dev tools
+RUN pip install --no-cache-dir \
+    jupyterlab \
+    ipykernel
+
+# Set environment defaults
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Switch to non-root user
+USER vscode
+WORKDIR /workspace
+
+# Default command (overridden by devcontainer)
+CMD ["python"]

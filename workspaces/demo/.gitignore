@@ -1,0 +1,30 @@
+# Data files (stored in MinIO)
+data/
+*.parquet
+*.duckdb
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_meta
+
+# Environment
+.env
+.env.local
+*.local
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db

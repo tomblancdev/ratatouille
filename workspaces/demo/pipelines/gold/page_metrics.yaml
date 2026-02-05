@@ -1,0 +1,58 @@
+# 🐀 Gold Page Metrics Configuration
+
+description: |
+  Page-level traffic analysis and engagement metrics.
+
+  Use Cases:
+  - Identify most popular pages
+  - Track conversion funnels
+  - Analyze user engagement
+  - Optimize landing pages
+
+owner: analytics-team@acme.com
+
+columns:
+  - name: page_url
+    type: string
+    description: Page URL
+    tests: [not_null, unique]
+
+  - name: total_events
+    type: int
+    description: Total number of events
+    tests: [not_null, positive]
+
+  - name: unique_users
+    type: int
+    description: Distinct users
+    tests: [not_null]
+
+  - name: unique_sessions
+    type: int
+    description: Distinct sessions
+
+  - name: pageviews
+    type: int
+    description: Pageview events
+
+  - name: clicks
+    type: int
+    description: Click events
+
+  - name: purchases
+    type: int
+    description: Purchase events
+
+  - name: avg_session_duration
+    type: decimal(10,1)
+    description: Average session duration in seconds
+
+  - name: conversion_rate
+    type: decimal(5,2)
+    description: Purchase rate as percentage of pageviews
+
+freshness:
+  warn_after:
+    hours: 6
+  error_after:
+    hours: 24

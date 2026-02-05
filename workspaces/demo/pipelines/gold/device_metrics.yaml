@@ -1,0 +1,61 @@
+# 🐀 Gold Device Metrics Configuration
+
+description: |
+  Device-level platform analysis.
+
+  Use Cases:
+  - Mobile vs Desktop performance
+  - Platform optimization decisions
+  - Cross-device user behavior
+  - Browser compatibility insights
+
+owner: analytics-team@acme.com
+
+columns:
+  - name: device
+    type: string
+    description: Device type (desktop, mobile, tablet)
+    tests:
+      - not_null
+      - unique
+      - accepted_values: [desktop, mobile, tablet]
+
+  - name: total_events
+    type: int
+    description: Total events from this device
+    tests: [not_null, positive]
+
+  - name: unique_users
+    type: int
+    description: Distinct users
+    tests: [not_null]
+
+  - name: unique_sessions
+    type: int
+    description: Distinct sessions
+
+  - name: purchases
+    type: int
+    description: Purchase events
+
+  - name: conversion_rate
+    type: decimal(5,2)
+    description: Purchase rate as percentage
+
+  - name: avg_session_duration
+    type: decimal(10,1)
+    description: Average session duration in seconds
+
+  - name: countries_reached
+    type: int
+    description: Number of distinct countries
+
+  - name: top_browser
+    type: string
+    description: Most common browser
+
+freshness:
+  warn_after:
+    hours: 6
+  error_after:
+    hours: 24

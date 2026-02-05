@@ -1,0 +1,26 @@
+# Mock data with null category to test quality check failure
+table: bronze_raw_sales
+rows:
+  - txn_id: "T001"
+    store_id: "S1"
+    product_id: "P001"
+    product_name: "Widget Pro"
+    category: "Electronics"
+    quantity: 2
+    unit_price: 10.00
+    payment_method: "card"
+    customer_id: "C001"
+    transaction_time: "2024-01-15 10:30:00"
+    _ingested_at: "2024-01-15 11:00:00"
+
+  - txn_id: "T002"
+    store_id: "S2"
+    product_id: "P002"
+    product_name: "Gadget Max"
+    category: null  # This should trigger the quality check failure
+    quantity: 3
+    unit_price: 25.50
+    payment_method: "cash"
+    customer_id: "C002"
+    transaction_time: "2024-01-15 14:00:00"
+    _ingested_at: "2024-01-15 15:00:00"

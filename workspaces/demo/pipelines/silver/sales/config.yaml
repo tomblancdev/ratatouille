@@ -1,0 +1,136 @@
+# 🐀 Silver Sales Configuration
+
+description: |
+  Cleaned and validated POS sales transactions.
+
+  Transformations:
+  - Filters invalid records (quantity <= 0, price <= 0)
+  - Standardizes text to uppercase
+  - Calculates total_amount
+  - Partitioned by date
+
+owner:
+  team: data-platform
+  email: data-team@acme.com
+  slack: "#data-alerts"
+
+columns:
+  - name: txn_id
+    type: string
+    description: Unique transaction identifier
+    pii: false
+    example: "T00123"
+    tests: [not_null, unique]
+
+  - name: store_id
+    type: string
+    description: Store identifier
+    pii: false
+    example: "S001"
+    tests: [not_null]
+
+  - name: product_id
+    type: string
+    description: Product identifier
+    pii: false
+    example: "P00456"
+    tests: [not_null]
+
+  - name: product_name
+    type: string
+    description: Product name (uppercased)
+    pii: false
+    example: "WIDGET PRO"
+
+  - name: category
+    type: string
+    description: Product category (uppercased)
+    pii: false
+    example: "ELECTRONICS"
+
+  - name: quantity
+    type: int
+    description: Quantity sold
+    pii: false
+    example: "2"
+    tests: [not_null, positive]
+
+  - name: unit_price
+    type: decimal(10,2)
+    description: Price per unit
+    pii: false
+    example: "29.99"
+    tests: [not_null, positive]
+
+  - name: total_amount
+    type: decimal(12,2)
+    description: Total transaction amount (quantity × unit_price)
+    pii: false
+    example: "59.98"
+    tests: [not_null, positive]
+
+  - name: payment_method
+    type: string
+    description: Payment method (CASH, CREDIT, DEBIT)
+    pii: false
+    example: "CREDIT"
+    tests:
+      - accepted_values: [CASH, CREDIT, DEBIT]
+
+  - name: customer_id
+    type: string
+    description: Customer identifier (linked to customer records)
+    pii: true
+    pii_type: customer_id
+    example: "C98765"
+
+  - name: transaction_time
+    type: timestamp
+    description: When the transaction occurred
+    pii: false
+
+  - name: _date
+    type: date
+    description: Transaction date (partition column)
+    pii: false
+    example: "2024-01-15"
+    tests: [not_null]
+
+  - name: _ingested_at
+    type: timestamp
+    description: When record was ingested to bronze
+    pii: false
+
+  - name: _processed_at
+    type: timestamp
+    description: When record was processed to silver
+    pii: false
+
+freshness:
+  warn_after:
+    hours: 6
+  error_after:
+    hours: 24
+
+documentation:
+  tags: [sales, finance, daily, pos]
+  rules:
+    - name: positive_quantities
+      description: Quantities must be greater than zero
+      sql: "quantity > 0"
+    - name: positive_prices
+      description: Prices must be greater than zero
+      sql: "unit_price > 0"
+    - name: valid_total
+      description: Total must equal quantity × unit_price
+      sql: "ABS(total_amount - quantity * unit_price) <= 0.01"
+    - name: required_txn_id
+      description: Every transaction must have an ID
+      sql: "txn_id IS NOT NULL"
+
+tests:
+  - name: total_equals_qty_times_price
+    sql: |
+      SELECT COUNT(*) FROM {{ this }}
+      WHERE ABS(total_amount - quantity * unit_price) > 0.01
+    expect: 0

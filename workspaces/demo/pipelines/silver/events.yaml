@@ -1,0 +1,76 @@
+# 🐀 Silver Events Configuration
+
+description: |
+  Cleaned and validated web analytics events.
+
+  Transformations:
+  - Filters invalid records (null IDs, future timestamps)
+  - Standardizes event_type and country to uppercase
+  - Standardizes device to lowercase
+  - Partitioned by date
+
+owner: data-team@acme.com
+
+columns:
+  - name: event_id
+    type: string
+    description: Unique event identifier
+    tests: [not_null, unique]
+
+  - name: user_id
+    type: string
+    description: Anonymous user identifier
+    tests: [not_null]
+
+  - name: session_id
+    type: string
+    description: Session identifier
+
+  - name: event_type
+    type: string
+    description: Type of event
+    tests:
+      - not_null
+      - accepted_values: [PAGEVIEW, CLICK, SCROLL, FORM_SUBMIT, PURCHASE]
+
+  - name: page_url
+    type: string
+    description: Page URL where event occurred
+
+  - name: device
+    type: string
+    description: Device type
+    tests:
+      - accepted_values: [desktop, mobile, tablet]
+
+  - name: _date
+    type: date
+    description: Event date (partition column)
+    tests: [not_null]
+
+freshness:
+  warn_after:
+    hours: 2
+  error_after:
+    hours: 12
+
+# Pipeline triggers - multiple ways to run this pipeline
+triggers:
+  # Watch for new files in bronze/events/
+  - type: s3_sensor
+    path: bronze/events/
+    interval: 60  # Check every 60 seconds
+
+  # Also run on schedule as backup
+  - type: schedule
+    cron: hourly  # Presets: hourly, daily, weekly, or cron expression
+
+  # Auto-schedule based on freshness requirements
+  - type: freshness
+
+tests:
+  - name: no_future_events
+    sql: |
+      SELECT COUNT(*) FROM {{ this }}
+      WHERE event_timestamp > NOW()
+    expect: 0

@@ -1,0 +1,27 @@
+# 🐀 Ratatouille Resource Profile: MEDIUM
+# Target: 64GB RAM VMs
+
+description: "Higher performance for production workloads"
+
+resources:
+  # Memory limits
+  max_memory_mb: 16384         # 16GB per pipeline operation
+  duckdb_memory_mb: 32768      # 32GB DuckDB total
+
+  # Processing
+  chunk_size_rows: 200000      # Larger chunks for throughput
+  max_parallel_pipelines: 4    # 4 concurrent pipelines
+
+  # DuckDB settings
+  duckdb:
+    threads: 4
+    memory_limit: "32GB"
+    temp_directory: "/tmp/duckdb"
+    preserve_insertion_order: true
+
+  # Container limits
+  containers:
+    minio_memory: "4G"
+    nessie_memory: "2G"
+    dagster_memory: "8G"
+    jupyter_memory: "4G"

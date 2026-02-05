@@ -1,45 +1,107 @@
 # 🐀 Ratatouille - Data Platform in a Box
 # Usage: make <command>
 
-.PHONY: help up down logs build clean run status query dev dev-merge dev-drop dev-status dev-branches
+.PHONY: help up down logs build clean status test lint format typecheck check dev-shell query run
+
+# Default container runtime (podman or docker)
+CONTAINER_RUNTIME ?= podman
+COMPOSE_CMD = $(CONTAINER_RUNTIME) compose
+
+# Colors
+CYAN := \033[36m
+GREEN := \033[32m
+YELLOW := \033[33m
+RESET := \033[0m
 
 help:
 	@echo "🐀 Ratatouille - Anyone Can Data!"
 	@echo ""
 	@echo "Usage: make <command>"
 	@echo ""
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  PLATFORM"
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  up        Start the platform"
-	@echo "  down      Stop the platform"
-	@echo "  build     Rebuild images"
-	@echo "  logs      Follow logs"
-	@echo "  status    Show status"
+	@echo "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "$(CYAN)  DEVELOPMENT$(RESET)"
+	@echo "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "  test        Run tests"
+	@echo "  lint        Run linter (ruff)"
+	@echo "  format      Format code (ruff)"
+	@echo "  typecheck   Run type checker (mypy)"
+	@echo "  check       Run all checks (lint + typecheck + test)"
+	@echo "  dev-shell   Open shell in dev container"
 	@echo ""
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  DATA"
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  run       Run all pipelines"
-	@echo "  query     ClickHouse shell"
+	@echo "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "$(CYAN)  PLATFORM$(RESET)"
+	@echo "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "  up          Start the platform"
+	@echo "  down        Stop the platform"
+	@echo "  build       Rebuild images"
+	@echo "  logs        Follow logs"
+	@echo "  status      Show container status"
+	@echo "  clean       Stop and remove volumes"
 	@echo ""
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  DEV MODE (Iceberg Branches)"
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  dev BRANCH=x        Start dev session"
-	@echo "  dev-merge BRANCH=x  Merge branch to main"
-	@echo "  dev-drop BRANCH=x   Drop branch"
-	@echo "  dev-status          Show current dev mode"
-	@echo "  dev-branches        List all branches"
+	@echo "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "$(CYAN)  DATA$(RESET)"
+	@echo "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "  run         Run all pipelines"
+	@echo "  query       DuckDB shell"
 	@echo ""
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  BROWSER"
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  Dagster:     http://localhost:3030"
-	@echo "  Jupyter:     http://localhost:8889 (token: ratatouille)"
-	@echo "  MinIO:       http://localhost:9001 (ratatouille/ratatouille123)"
-	@echo "  ClickHouse:  http://localhost:8123 (ratatouille/ratatouille123)"
+	@echo "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "$(CYAN)  WEB UI$(RESET)"
+	@echo "$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "  Dagster:    http://localhost:3030"
+	@echo "  Jupyter:    http://localhost:8889 (token: ratatouille)"
+	@echo "  MinIO:      http://localhost:9001 (ratatouille/ratatouille123)"
+	@echo "  Nessie:     http://localhost:19120"
 	@echo ""
+	@echo "$(YELLOW)Tip: Set CONTAINER_RUNTIME=docker to use Docker instead of Podman$(RESET)"
+	@echo ""
+
+# ============================================
+# DEVELOPMENT
+# ============================================
+
+test:
+	@echo "🧪 Running tests..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille pytest tests/ -v
+
+test-unit:
+	@echo "🧪 Running unit tests..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille pytest tests/unit/ -v
+
+test-integration:
+	@echo "🧪 Running integration tests..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille pytest tests/integration/ -v -m integration
+
+test-cov:
+	@echo "🧪 Running tests with coverage..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille pytest tests/ -v --cov=src/ratatouille --cov-report=term-missing
+
+lint:
+	@echo "🔍 Linting..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille ruff check src/ tests/
+
+lint-fix:
+	@echo "🔧 Fixing lint issues..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille ruff check src/ tests/ --fix
+
+format:
+	@echo "✨ Formatting..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille ruff format src/ tests/
+
+format-check:
+	@echo "🔍 Checking format..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille ruff format src/ tests/ --check
+
+typecheck:
+	@echo "🔬 Type checking..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille mypy src/ratatouille
+
+check: lint-fix format typecheck test
+	@echo ""
+	@echo "$(GREEN)✅ All checks passed!$(RESET)"
+
+dev-shell:
+	@echo "🐚 Opening dev shell..."
+	@$(COMPOSE_CMD) run --rm --build ratatouille bash
 
 # ============================================
 # PLATFORM
@@ -47,27 +109,27 @@ help:
 
 up:
 	@echo "🐀 Starting Ratatouille..."
-	@docker compose up -d --build
+	@$(COMPOSE_CMD) up -d --build
 	@echo ""
-	@echo "✅ Platform ready!"
-	@echo "   Dagster:     http://localhost:3030"
-	@echo "   Jupyter:     http://localhost:8889 (token: ratatouille)"
-	@echo "   MinIO:       http://localhost:9001"
-	@echo "   ClickHouse:  http://localhost:8123"
+	@echo "$(GREEN)✅ Platform ready!$(RESET)"
+	@echo "   Dagster:    http://localhost:3030"
+	@echo "   Jupyter:    http://localhost:8889 (token: ratatouille)"
+	@echo "   MinIO:      http://localhost:9001"
+	@echo "   Nessie:     http://localhost:19120"
 
 down:
 	@echo "🛑 Stopping..."
-	@docker compose down
+	@$(COMPOSE_CMD) down
 
 build:
 	@echo "🔨 Building..."
-	@docker compose build --no-cache
+	@$(COMPOSE_CMD) build --no-cache
 
 logs:
-	@docker compose logs -f
+	@$(COMPOSE_CMD) logs -f
 
 status:
-	@docker compose ps
+	@$(COMPOSE_CMD) ps
 
 # ============================================
 # DATA
@@ -75,49 +137,23 @@ status:
 
 run:
 	@echo "⚡ Running all pipelines..."
-	@docker compose exec dagster dagster asset materialize --select "*"
+	@$(COMPOSE_CMD) exec dagster dagster asset materialize --select "*"
 
 query:
-	@echo "🏠 ClickHouse shell..."
-	@docker compose exec clickhouse clickhouse-client --user ratatouille --password ratatouille123
+	@echo "🦆 DuckDB shell..."
+	@$(COMPOSE_CMD) run --rm ratatouille python -c "import duckdb; import readline; duckdb.connect(':memory:').sql('SELECT 1 AS hello').show()"
+	@echo "Use: $(COMPOSE_CMD) exec jupyter python -c \"from ratatouille import sdk; sdk.query('SELECT 1')\""
 
 # ============================================
-# DEV MODE
+# WORKSPACE IMAGE
 # ============================================
 
-dev:
-ifndef BRANCH
-	@echo "❌ Usage: make dev BRANCH=feature/your-branch"
-	@exit 1
-endif
-	@echo "🔬 Starting dev session: $(BRANCH)"
-	@docker compose exec jupyter python -c "from ratatouille import rat; rat.dev_start('$(BRANCH)')"
+build-workspace:
+	@echo "🐀 Building workspace image..."
+	@$(CONTAINER_RUNTIME) build -f Dockerfile.workspace -t ratatouille-workspace:latest .
+	@echo "$(GREEN)✅ Image built: ratatouille-workspace:latest$(RESET)"
 	@echo ""
-	@echo "✅ Dev mode active! Open Jupyter at http://localhost:8889"
-
-dev-merge:
-ifndef BRANCH
-	@echo "❌ Usage: make dev-merge BRANCH=feature/your-branch"
-	@exit 1
-endif
-	@echo "🔀 Merging branch: $(BRANCH)"
-	@docker compose exec jupyter python -c "from ratatouille import rat; rat.dev_merge('$(BRANCH)')"
-
-dev-drop:
-ifndef BRANCH
-	@echo "❌ Usage: make dev-drop BRANCH=feature/your-branch"
-	@exit 1
-endif
-	@echo "🗑️ Dropping branch: $(BRANCH)"
-	@docker compose exec jupyter python -c "from ratatouille import rat; rat.dev_drop('$(BRANCH)')"
-
-dev-status:
-	@echo "📊 Dev mode status:"
-	@docker compose exec jupyter python -c "from ratatouille import rat; import json; print(json.dumps(rat.dev_status(), indent=2))"
-
-dev-branches:
-	@echo "🌿 Branches:"
-	@docker compose exec jupyter python -c "from ratatouille import rat; import json; print(json.dumps(rat.dev_branches(), indent=2))"
+	@echo "To use in devcontainer, the image is now available locally."
 
 # ============================================
 # CLEANUP
@@ -125,5 +161,15 @@ dev-branches:
 
 clean:
 	@echo "🧹 Cleaning up..."
-	@docker compose down -v
-	@echo "✅ Clean"
+	@$(COMPOSE_CMD) down -v --remove-orphans
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@echo "$(GREEN)✅ Clean$(RESET)"
+
+clean-all: clean
+	@echo "🧹 Deep clean (removing data)..."
+	@rm -rf data/
+	@echo "$(GREEN)✅ All clean$(RESET)"
