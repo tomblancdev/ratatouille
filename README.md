@@ -14,19 +14,68 @@ make up
 # Dagster:  http://localhost:3030
 # Jupyter:  http://localhost:8889 (token: ratatouille)
 # MinIO:    http://localhost:9001 (ratatouille/ratatouille123)
-# Nessie:   http://localhost:19120
 ```
 
-## Create a Workspace
+## Usage
+
+### Python SDK
+
+```python
+from ratatouille import run, workspace, query, tools
+
+# Load workspace
+workspace("demo")
+
+# Run pipelines (defined as SQL/Python files)
+run("silver.sales")
+run("gold.daily_kpis", full_refresh=True)
+
+# Query data
+df = query("SELECT * FROM silver.sales LIMIT 10")
+
+# Explore
+tools.tables()                    # List all tables
+tools.schema("silver.sales")      # Get schema
+tools.preview("gold.metrics")     # Preview data
+```
+
+### CLI
 
 ```bash
-# Using the CLI
-pip install -e .
+# Create a workspace
 rat init my-workspace
 
-# Or use an existing workspace
-cd workspaces/demo
-code .  # Open in VS Code, then "Reopen in Container"
+# Run pipelines
+rat run silver.sales
+rat run silver.sales -f  # Full refresh
+
+# Query data
+rat query "SELECT * FROM silver.sales LIMIT 10"
+
+# Run tests
+rat test
+```
+
+## File-First Pipelines
+
+Define pipelines as SQL files (like dbt):
+
+```sql
+-- pipelines/silver/sales.sql
+SELECT
+    date,
+    product,
+    quantity * price AS total
+FROM {{ ref('bronze.sales') }}
+WHERE quantity > 0
+```
+
+```yaml
+# pipelines/silver/sales.yaml
+name: sales
+layer: silver
+materialization: incremental
+unique_key: [date, product]
 ```
 
 ## Architecture
@@ -41,7 +90,6 @@ code .  # Open in VS Code, then "Reopen in Container"
 **Stack:**
 - **Storage**: Parquet + MinIO (S3-compatible)
 - **Query**: DuckDB (blazing fast OLAP)
-- **Catalog**: Nessie (Git-like versioning)
 - **Orchestration**: Dagster
 - **Containers**: Podman/Docker
 
@@ -53,6 +101,14 @@ make test     # Run tests only
 make lint     # Run linter
 make format   # Format code
 ```
+
+## Documentation
+
+📚 Full documentation: [docs/README.md](docs/README.md)
+
+- [Getting Started](docs/guide/getting-started.md)
+- [SDK Reference](docs/reference/sdk.md)
+- [CLI Reference](docs/reference/cli.md)
 
 ## Philosophy
 
