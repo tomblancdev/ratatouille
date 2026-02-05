@@ -99,20 +99,6 @@ jobs:
     name: "🔗 Integration Tests"
     runs-on: ubuntu-latest
     services:
-      minio:
-        image: bitnami/minio:latest
-        ports:
-          - 9000:9000
-          - 9001:9001
-        env:
-          MINIO_ROOT_USER: ratatouille
-          MINIO_ROOT_PASSWORD: ratatouille123
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
       nessie:
         image: ghcr.io/projectnessie/nessie:latest
         ports:
@@ -127,6 +113,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 -p 9001:9001 \
+            -e MINIO_ROOT_USER=ratatouille \
+            -e MINIO_ROOT_PASSWORD=ratatouille123 \
+            minio/minio:latest server /data --console-address ":9001"
 
       - name: Set up Python
         uses: actions/setup-python@v5
