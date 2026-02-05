@@ -100,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       minio:
-        image: minio/minio:latest
+        image: bitnami/minio:latest
         ports:
           - 9000:9000
           - 9001:9001
@@ -111,8 +111,7 @@ jobs:
           --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
-        # Note: minio server /data command is default in official image
+          --health-retries 10
 
       nessie:
         image: ghcr.io/projectnessie/nessie:latest
