@@ -6,6 +6,7 @@ Usage:
     rat init <name>     Create a new workspace
     rat run <pipeline>  Run a pipeline
     rat query <sql>     Execute SQL query
+    rat test            Run pipeline tests
     rat --help          Show help
 """
 
@@ -18,6 +19,27 @@ from rich.console import Console
 from rich.panel import Panel
 
 console = Console()
+
+
+def get_workspace_path() -> Path:
+    """Get the current workspace path from environment or current directory."""
+    ws_path = os.getenv("RATATOUILLE_WORKSPACE_PATH")
+    if ws_path:
+        return Path(ws_path)
+
+    # Try to find workspace by looking for pipelines/ folder
+    cwd = Path.cwd()
+    if (cwd / "pipelines").exists():
+        return cwd
+    if (cwd / "workspace.yaml").exists():
+        return cwd
+
+    # Check parent directories
+    for parent in cwd.parents:
+        if (parent / "pipelines").exists() or (parent / "workspace.yaml").exists():
+            return parent
+
+    return cwd
 
 
 def get_template_dir() -> Path:
@@ -89,6 +111,74 @@ def run_query(sql: str) -> None:
         sys.exit(1)
 
 
+def run_tests(
+    workspace: str | None = None,
+    pipeline: str | None = None,
+    layer: str | None = None,
+    test_type: list[str] | None = None,
+    output: str = "console",
+    verbose: bool = False,
+    fail_fast: bool = False,
+) -> None:
+    """Run pipeline tests.
+
+    Args:
+        workspace: Workspace name or path
+        pipeline: Filter by pipeline name
+        layer: Filter by layer (bronze, silver, gold)
+        test_type: Filter by test type (quality, unit)
+        output: Output format (console, json)
+        verbose: Show verbose output
+        fail_fast: Stop on first failure
+    """
+    from ratatouille.testing.runner import TestRunner
+    from ratatouille.testing.reporters.console import ConsoleReporter
+    from ratatouille.testing.reporters.json import JSONReporter
+
+    # Determine workspace path
+    if workspace:
+        workspace_path = Path(workspace)
+        if not workspace_path.is_absolute():
+            # Try as workspace name in workspaces/
+            workspaces_dir = Path.cwd() / "workspaces"
+            if (workspaces_dir / workspace).exists():
+                workspace_path = workspaces_dir / workspace
+            else:
+                workspace_path = Path.cwd() / workspace
+    else:
+        workspace_path = get_workspace_path()
+
+    if not workspace_path.exists():
+        console.print(f"[red]Error:[/red] Workspace not found: {workspace_path}")
+        sys.exit(1)
+
+    workspace_name = workspace_path.name
+
+    # Select reporter
+    if output == "json":
+        reporter = JSONReporter(pretty=verbose)
+    else:
+        reporter = ConsoleReporter(verbose=verbose, fail_fast=fail_fast)
+
+    # Create runner and execute
+    runner = TestRunner(workspace_path, workspace_name, reporter)
+
+    try:
+        if pipeline:
+            results = runner.run(pipeline=pipeline, layer=layer, test_types=test_type)
+        else:
+            results = runner.run_all(layer=layer, test_types=test_type)
+
+        # Exit with error code if any tests failed
+        total_failed = sum(r.failed + r.errored for r in results)
+        if total_failed > 0:
+            sys.exit(1)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main CLI entrypoint."""
     parser = argparse.ArgumentParser(
@@ -101,6 +191,9 @@ Examples:
   rat init analytics --path ~  Create workspace at ~/analytics
   rat run silver.events        Run the silver.events pipeline
   rat query "SHOW TABLES"      Execute SQL query
+  rat test                     Run all tests in current workspace
+  rat test -w demo             Run tests for demo workspace
+  rat test -p sales -t quality Run quality tests for sales pipeline
         """,
     )
 
@@ -124,8 +217,47 @@ Examples:
     query_parser = subparsers.add_parser("query", help="Execute SQL query")
     query_parser.add_argument("sql", help="SQL query to execute")
 
+    # test command
+    test_parser = subparsers.add_parser("test", help="Run pipeline tests")
+    test_parser.add_argument(
+        "--workspace", "-w",
+        help="Workspace name or path (default: current workspace)"
+    )
+    test_parser.add_argument(
+        "--pipeline", "-p",
+        help="Filter by pipeline name (e.g., 'sales')"
+    )
+    test_parser.add_argument(
+        "--layer", "-l",
+        choices=["bronze", "silver", "gold"],
+        help="Filter by layer"
+    )
+    test_parser.add_argument(
+        "--type", "-t",
+        action="append",
+        dest="test_type",
+        choices=["quality", "unit"],
+        help="Filter by test type (can specify multiple)"
+    )
+    test_parser.add_argument(
+        "--output", "-o",
+        choices=["console", "json"],
+        default="console",
+        help="Output format (default: console)"
+    )
+    test_parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show verbose output with data samples"
+    )
+    test_parser.add_argument(
+        "--fail-fast", "-x",
+        action="store_true",
+        help="Stop on first failure"
+    )
+
     # version
-    parser.add_argument("--version", "-v", action="version", version="%(prog)s 2.0.0")
+    parser.add_argument("--version", action="version", version="%(prog)s 2.0.0")
 
     args = parser.parse_args()
 
@@ -136,6 +268,16 @@ Examples:
         run_pipeline(args.pipeline, args.full_refresh)
     elif args.command == "query":
         run_query(args.sql)
+    elif args.command == "test":
+        run_tests(
+            workspace=args.workspace,
+            pipeline=args.pipeline,
+            layer=args.layer,
+            test_type=args.test_type,
+            output=args.output,
+            verbose=args.verbose,
+            fail_fast=args.fail_fast,
+        )
     else:
         parser.print_help()
 

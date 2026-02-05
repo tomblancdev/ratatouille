@@ -1,0 +1,61 @@
+# 🐀 Silver Sales Configuration
+
+description: |
+  Cleaned and validated POS sales transactions.
+
+  Transformations:
+  - Filters invalid records (quantity <= 0, price <= 0)
+  - Standardizes text to uppercase
+  - Calculates total_amount
+  - Partitioned by date
+
+owner: data-team@acme.com
+
+columns:
+  - name: txn_id
+    type: string
+    description: Unique transaction identifier
+    tests: [not_null, unique]
+
+  - name: store_id
+    type: string
+    description: Store identifier
+    tests: [not_null]
+
+  - name: product_id
+    type: string
+    description: Product identifier
+    tests: [not_null]
+
+  - name: quantity
+    type: int
+    description: Quantity sold
+    tests: [not_null, positive]
+
+  - name: unit_price
+    type: decimal(10,2)
+    description: Price per unit
+    tests: [not_null, positive]
+
+  - name: total_amount
+    type: decimal(12,2)
+    description: Total transaction amount
+    tests: [not_null, positive]
+
+  - name: _date
+    type: date
+    description: Transaction date (partition column)
+    tests: [not_null]
+
+freshness:
+  warn_after:
+    hours: 6
+  error_after:
+    hours: 24
+
+tests:
+  - name: total_equals_qty_times_price
+    sql: |
+      SELECT COUNT(*) FROM {{ this }}
+      WHERE ABS(total_amount - quantity * unit_price) > 0.01
+    expect: 0

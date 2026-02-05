@@ -37,6 +37,7 @@ from ratatouille.discovery import (
     discover_workspace_triggers,
     list_workspaces,
 )
+from ratatouille.testing.dagster import discover_asset_checks
 
 # Import built-in demo pipelines (if they exist)
 try:
@@ -64,6 +65,11 @@ if triggers.sensors:
 if triggers.schedules:
     print(f"   Schedules: {len(triggers.schedules)}")
 
+# Auto-discover asset checks (from quality tests)
+asset_checks = discover_asset_checks(WORKSPACES_DIR)
+if asset_checks:
+    print(f"   Asset checks: {len(asset_checks)}")
+
 # Import project-level pipelines (at root level, if they exist)
 try:
     import pipelines as project_pipelines
@@ -90,10 +96,11 @@ all_jobs = [*project_jobs]
 # Create Dagster Definitions
 defs = Definitions(
     assets=all_assets,
+    asset_checks=asset_checks,
     sensors=all_sensors,
     schedules=all_schedules,
     jobs=all_jobs,
 )
 
 print(f"🐀 Ratatouille ready!")
-print(f"   Total: {len(all_assets)} assets, {len(all_sensors)} sensors, {len(all_schedules)} schedules")
+print(f"   Total: {len(all_assets)} assets, {len(asset_checks)} checks, {len(all_sensors)} sensors, {len(all_schedules)} schedules")
