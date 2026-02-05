@@ -14,6 +14,7 @@ make up
 # Dagster:  http://localhost:3030
 # Jupyter:  http://localhost:8889 (token: ratatouille)
 # MinIO:    http://localhost:9001 (ratatouille/ratatouille123)
+# Nessie:   http://localhost:19120
 ```
 
 ## Usage
@@ -90,6 +91,7 @@ unique_key: [date, product]
 **Stack:**
 - **Storage**: Parquet + MinIO (S3-compatible)
 - **Query**: DuckDB (blazing fast OLAP)
+- **Catalog**: Nessie (Git-like versioning)
 - **Orchestration**: Dagster
 - **Containers**: Podman/Docker
 
