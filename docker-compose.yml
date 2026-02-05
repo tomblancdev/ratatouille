@@ -118,7 +118,7 @@ services:
       - "3030:3000"
     volumes:
       - ./src:/app/src
-      - ./workspaces:/app/workspaces
+      - ./workspaces/demo:/app/workspaces/demo
       - ./config:/app/config
       - dagster_storage:/app/storage
     depends_on:
@@ -164,7 +164,7 @@ services:
       - "8889:8888"
     volumes:
       - ./src:/app/src
-      - ./workspaces:/app/workspaces
+      - ./workspaces/demo:/app/workspaces/demo
       - ./config:/app/config
     depends_on:
       minio:
@@ -178,7 +178,7 @@ services:
     command: >
       jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
       --ServerApp.token=${JUPYTER_TOKEN:-ratatouille}
-      --notebook-dir=/app/workspaces
+      --notebook-dir=/app/workspaces/demo
 
 networks:
   default:
