@@ -8,9 +8,9 @@ Supports:
 - Dependencies: Auto-trigger downstream when upstream completes
 """
 
-from ratatouille.triggers.sensors import create_s3_sensor, S3SensorConfig
-from ratatouille.triggers.schedules import create_schedule, ScheduleConfig
 from ratatouille.triggers.factory import create_triggers_from_yaml
+from ratatouille.triggers.schedules import ScheduleConfig, create_schedule
+from ratatouille.triggers.sensors import S3SensorConfig, create_s3_sensor
 
 __all__ = [
     "create_s3_sensor",

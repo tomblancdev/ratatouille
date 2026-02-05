@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from ratatouille.engine.duckdb import DuckDBEngine
     from ratatouille.workspace.manager import Workspace
 
-from .registry import ProductRegistry, ProductVersion
+from .registry import ProductRegistry
 
 
 @dataclass
@@ -39,7 +39,7 @@ class PublishResult:
 
 
 def publish_product(
-    workspace: "Workspace",
+    workspace: Workspace,
     product_name: str,
     source_table: str,
     version: str,
@@ -159,7 +159,7 @@ def publish_product(
 
 
 def publish_from_config(
-    workspace: "Workspace",
+    workspace: Workspace,
     registry: ProductRegistry | None = None,
 ) -> list[PublishResult]:
     """Publish all products defined in workspace config.
@@ -215,7 +215,7 @@ def publish_from_config(
     return results
 
 
-def _extract_schema(engine: "DuckDBEngine", table: str) -> dict[str, Any]:
+def _extract_schema(engine: DuckDBEngine, table: str) -> dict[str, Any]:
     """Extract schema information from a table.
 
     Returns dict mapping column name to column info:
@@ -253,7 +253,7 @@ def _extract_schema(engine: "DuckDBEngine", table: str) -> dict[str, Any]:
 
         return schema
 
-    except Exception as e:
+    except Exception:
         # Fallback: try to infer schema from SELECT
         df = engine.query(f"SELECT * FROM {table} LIMIT 0")
         schema = {}
@@ -274,7 +274,7 @@ def _get_product_s3_path(product_name: str, version: str) -> str:
 
 
 def _copy_to_s3(
-    engine: "DuckDBEngine",
+    engine: DuckDBEngine,
     source_table: str,
     s3_location: str,
 ) -> int:
@@ -310,7 +310,7 @@ def _copy_to_s3(
     return row_count
 
 
-def _get_nessie_commit(workspace: "Workspace") -> str | None:
+def _get_nessie_commit(workspace: Workspace) -> str | None:
     """Get current Nessie commit hash for the workspace branch."""
     try:
         import httpx

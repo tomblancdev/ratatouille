@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ..parsers.lineage import LineageInfo, generate_workspace_lineage_diagram
+from ..parsers.lineage import LineageInfo
 
 
 def generate_lineage(
@@ -36,7 +36,9 @@ def generate_lineage(
     display_name = pipeline_name.replace("_", " ").title()
     sections.append(f"# Lineage: {display_name}")
     sections.append("")
-    sections.append(f"> 🐀 Auto-generated | Layer: `{layer}` | Last updated: {datetime.now().strftime('%Y-%m-%d')}")
+    sections.append(
+        f"> 🐀 Auto-generated | Layer: `{layer}` | Last updated: {datetime.now().strftime('%Y-%m-%d')}"
+    )
     sections.append("")
 
     # Summary
@@ -97,9 +99,13 @@ def generate_lineage(
         for downstream in lineage.downstream:
             sections.append(f"- `{downstream}`")
         sections.append("")
-        sections.append("Please coordinate with downstream owners before making breaking changes.")
+        sections.append(
+            "Please coordinate with downstream owners before making breaking changes."
+        )
     else:
-        sections.append("This pipeline has no downstream dependencies. Changes can be made safely.")
+        sections.append(
+            "This pipeline has no downstream dependencies. Changes can be made safely."
+        )
     sections.append("")
 
     # Full workspace diagram (optional)
@@ -139,7 +145,9 @@ def generate_lineage_index(
 
     sections.append(f"# Lineage Index: {workspace_name}")
     sections.append("")
-    sections.append(f"> 🐀 Auto-generated | Last updated: {datetime.now().strftime('%Y-%m-%d')}")
+    sections.append(
+        f"> 🐀 Auto-generated | Last updated: {datetime.now().strftime('%Y-%m-%d')}"
+    )
     sections.append("")
 
     # Stats
@@ -167,7 +175,7 @@ def generate_lineage_index(
 
     # Group by layer
     layers = {"bronze": [], "silver": [], "gold": []}
-    for name, lineage in lineage_map.items():
+    for _name, lineage in lineage_map.items():
         layer = lineage.layer or "other"
         if layer in layers:
             layers[layer].append(lineage)

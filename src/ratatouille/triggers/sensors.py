@@ -4,22 +4,20 @@
 Creates Dagster sensors that poll S3 for new files and trigger pipelines.
 """
 
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
-
-from dagster import (
-    RunRequest,
-    SensorDefinition,
-    SensorEvaluationContext,
-    sensor,
-    SkipReason,
-    DefaultSensorStatus,
-)
 
 import boto3
 from botocore.client import Config
-import os
+from dagster import (
+    DefaultSensorStatus,
+    RunRequest,
+    SensorDefinition,
+    SensorEvaluationContext,
+    SkipReason,
+    sensor,
+)
 
 
 @dataclass
@@ -109,7 +107,9 @@ def create_s3_sensor(config: S3SensorConfig) -> SensorDefinition:
                     },
                 )
             else:
-                return SkipReason(f"No new files in s3://{config.bucket}/{config.prefix}")
+                return SkipReason(
+                    f"No new files in s3://{config.bucket}/{config.prefix}"
+                )
 
         except Exception as e:
             context.log.error(f"S3 sensor error: {e}")

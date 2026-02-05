@@ -9,10 +9,8 @@ DuckDB is perfect for Ratatouille because:
 
 from __future__ import annotations
 
-import os
 from contextlib import contextmanager
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import duckdb
 import pandas as pd
@@ -42,7 +40,7 @@ class DuckDBEngine:
         s3_secret_key: str,
         nessie_uri: str | None = None,
         nessie_branch: str = "main",
-        resources: "ResourceConfig | None" = None,
+        resources: ResourceConfig | None = None,
     ):
         self.s3_endpoint = s3_endpoint
         self.s3_access_key = s3_access_key
@@ -53,6 +51,7 @@ class DuckDBEngine:
         # Load resources config
         if resources is None:
             from ratatouille.resources.config import get_resource_config
+
             resources = get_resource_config()
         self.resources = resources
 
@@ -120,7 +119,7 @@ class DuckDBEngine:
         pass
 
     @classmethod
-    def from_env(cls) -> "DuckDBEngine":
+    def from_env(cls) -> DuckDBEngine:
         """Create engine from environment variables."""
         from ratatouille.resources.config import get_settings
 
@@ -134,7 +133,7 @@ class DuckDBEngine:
         )
 
     @classmethod
-    def for_workspace(cls, workspace: "Workspace") -> "DuckDBEngine":
+    def for_workspace(cls, workspace: Workspace) -> DuckDBEngine:
         """Create engine configured for a specific workspace."""
         return cls(
             s3_endpoint=workspace.s3_endpoint,
@@ -247,7 +246,7 @@ class DuckDBEngine:
             self._conn.close()
             self._conn = None
 
-    def __enter__(self) -> "DuckDBEngine":
+    def __enter__(self) -> DuckDBEngine:
         return self
 
     def __exit__(self, *args) -> None:

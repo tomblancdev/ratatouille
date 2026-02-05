@@ -12,11 +12,12 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator, Literal
+from typing import Any, Literal
 
 from packaging import version as semver
 
@@ -63,7 +64,9 @@ class AccessRule:
     """Access control rule for a product."""
 
     product_name: str
-    workspace_pattern: str  # "*" for all, "analytics-*" for pattern, "finance" for exact
+    workspace_pattern: (
+        str  # "*" for all, "analytics-*" for pattern, "finance" for exact
+    )
     access_level: Literal["read", "write", "admin"]
     granted_at: datetime = field(default_factory=datetime.now)
     granted_by: str = "system"
@@ -110,7 +113,7 @@ class ProductRegistry:
         if db_path is None:
             db_path = os.getenv(
                 "PRODUCT_REGISTRY_DB",
-                str(Path(os.getenv("DATA_DIR", "/data")) / "products.db")
+                str(Path(os.getenv("DATA_DIR", "/data")) / "products.db"),
             )
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -206,7 +209,7 @@ class ProductRegistry:
             if result[0] is None:
                 conn.execute(
                     "INSERT INTO _schema_version (version) VALUES (?)",
-                    (self.SCHEMA_VERSION,)
+                    (self.SCHEMA_VERSION,),
                 )
 
     # ========== Product Management ==========
@@ -245,11 +248,18 @@ class ProductRegistry:
                                          sla_freshness_hours, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (name, owner_workspace, description, json.dumps(tags),
-                     sla_freshness_hours, now, now)
+                    (
+                        name,
+                        owner_workspace,
+                        description,
+                        json.dumps(tags),
+                        sla_freshness_hours,
+                        now,
+                        now,
+                    ),
                 )
-            except sqlite3.IntegrityError:
-                raise ValueError(f"Product '{name}' already exists")
+            except sqlite3.IntegrityError as err:
+                raise ValueError(f"Product '{name}' already exists") from err
 
         return Product(
             name=name,
@@ -332,7 +342,7 @@ class ProductRegistry:
                 SET is_deprecated = 1, deprecation_message = ?, updated_at = ?
                 WHERE name = ?
                 """,
-                (message, datetime.now().isoformat(), name)
+                (message, datetime.now().isoformat(), name),
             )
 
     # ========== Version Management ==========
@@ -373,20 +383,21 @@ class ProductRegistry:
         # Validate semver
         try:
             semver.parse(version)
-        except Exception:
-            raise ValueError(f"Invalid semver version: {version}")
+        except Exception as err:
+            raise ValueError(f"Invalid semver version: {version}") from err
 
         now = datetime.now().isoformat()
 
         with self._connect() as conn:
             # Check product exists
             product = conn.execute(
-                "SELECT owner_workspace FROM products WHERE name = ?",
-                (product_name,)
+                "SELECT owner_workspace FROM products WHERE name = ?", (product_name,)
             ).fetchone()
 
             if product is None:
-                raise ValueError(f"Product '{product_name}' not found. Register it first.")
+                raise ValueError(
+                    f"Product '{product_name}' not found. Register it first."
+                )
 
             if product["owner_workspace"] != source_workspace:
                 raise ValueError(
@@ -402,17 +413,28 @@ class ProductRegistry:
                      row_count, s3_location, nessie_commit, published_at, published_by, changelog)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (product_name, version, source_workspace, source_table,
-                     json.dumps(schema_snapshot), row_count, s3_location, nessie_commit,
-                     now, published_by, changelog)
+                    (
+                        product_name,
+                        version,
+                        source_workspace,
+                        source_table,
+                        json.dumps(schema_snapshot),
+                        row_count,
+                        s3_location,
+                        nessie_commit,
+                        now,
+                        published_by,
+                        changelog,
+                    ),
                 )
-            except sqlite3.IntegrityError:
-                raise ValueError(f"Version {version} already exists for product '{product_name}'")
+            except sqlite3.IntegrityError as err:
+                raise ValueError(
+                    f"Version {version} already exists for product '{product_name}'"
+                ) from err
 
             # Update product timestamp
             conn.execute(
-                "UPDATE products SET updated_at = ? WHERE name = ?",
-                (now, product_name)
+                "UPDATE products SET updated_at = ? WHERE name = ?", (now, product_name)
             )
 
         return ProductVersion(
@@ -434,7 +456,7 @@ class ProductRegistry:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT * FROM product_versions WHERE product_name = ? AND version = ?",
-                (product_name, version)
+                (product_name, version),
             ).fetchone()
 
             if row is None:
@@ -455,15 +477,13 @@ class ProductRegistry:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM product_versions WHERE product_name = ? ORDER BY published_at DESC",
-                (product_name,)
+                (product_name,),
             ).fetchall()
 
             return [self._row_to_version(row) for row in rows]
 
     def resolve_version(
-        self,
-        product_name: str,
-        constraint: str = "latest"
+        self, product_name: str, constraint: str = "latest"
     ) -> ProductVersion | None:
         """Resolve a version constraint to a specific version.
 
@@ -589,7 +609,7 @@ class ProductRegistry:
                 (product_name, workspace_pattern, access_level, granted_at, granted_by)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                (product_name, workspace_pattern, level, now, granted_by)
+                (product_name, workspace_pattern, level, now, granted_by),
             )
 
         return AccessRule(
@@ -605,7 +625,7 @@ class ProductRegistry:
         with self._connect() as conn:
             cursor = conn.execute(
                 "DELETE FROM access_rules WHERE product_name = ? AND workspace_pattern = ?",
-                (product_name, workspace_pattern)
+                (product_name, workspace_pattern),
             )
             return cursor.rowcount > 0
 
@@ -629,8 +649,7 @@ class ProductRegistry:
 
         with self._connect() as conn:
             rules = conn.execute(
-                "SELECT * FROM access_rules WHERE product_name = ?",
-                (product_name,)
+                "SELECT * FROM access_rules WHERE product_name = ?", (product_name,)
             ).fetchall()
 
             for rule in rules:
@@ -657,8 +676,7 @@ class ProductRegistry:
         """List all access rules for a product."""
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM access_rules WHERE product_name = ?",
-                (product_name,)
+                "SELECT * FROM access_rules WHERE product_name = ?", (product_name,)
             ).fetchall()
 
             return [
@@ -704,7 +722,13 @@ class ProductRegistry:
                 (product_name, consumer_workspace, version_constraint, local_alias, subscribed_at)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                (product_name, consumer_workspace, version_constraint, local_alias, now)
+                (
+                    product_name,
+                    consumer_workspace,
+                    version_constraint,
+                    local_alias,
+                    now,
+                ),
             )
 
     def unsubscribe(self, product_name: str, consumer_workspace: str) -> bool:
@@ -712,7 +736,7 @@ class ProductRegistry:
         with self._connect() as conn:
             cursor = conn.execute(
                 "DELETE FROM subscriptions WHERE product_name = ? AND consumer_workspace = ?",
-                (product_name, consumer_workspace)
+                (product_name, consumer_workspace),
             )
             return cursor.rowcount > 0
 
@@ -726,7 +750,7 @@ class ProductRegistry:
                 JOIN products p ON s.product_name = p.name
                 WHERE s.consumer_workspace = ?
                 """,
-                (consumer_workspace,)
+                (consumer_workspace,),
             ).fetchall()
 
             return [
@@ -747,6 +771,6 @@ class ProductRegistry:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT consumer_workspace FROM subscriptions WHERE product_name = ?",
-                (product_name,)
+                (product_name,),
             ).fetchall()
             return [row["consumer_workspace"] for row in rows]

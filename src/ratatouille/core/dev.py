@@ -27,19 +27,17 @@ from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
-from typing import Optional
-
 
 # Thread-local storage for dev state
 _dev_state = threading.local()
 
 
-def _get_dev_branch() -> Optional[str]:
+def _get_dev_branch() -> str | None:
     """Get current dev branch name, or None if not in dev mode."""
     return getattr(_dev_state, "branch", None)
 
 
-def _set_dev_branch(branch: Optional[str]) -> None:
+def _set_dev_branch(branch: str | None) -> None:
     """Set current dev branch."""
     _dev_state.branch = branch
 

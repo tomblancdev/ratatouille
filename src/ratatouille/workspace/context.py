@@ -17,18 +17,18 @@ if TYPE_CHECKING:
 _context = threading.local()
 
 
-def get_current_workspace() -> "Workspace | None":
+def get_current_workspace() -> Workspace | None:
     """Get the current workspace (if set)."""
     return getattr(_context, "workspace", None)
 
 
-def set_current_workspace(workspace: "Workspace | None") -> None:
+def set_current_workspace(workspace: Workspace | None) -> None:
     """Set the current workspace."""
     _context.workspace = workspace
 
 
 @contextmanager
-def workspace_context(workspace: "Workspace"):
+def workspace_context(workspace: Workspace):
     """Context manager to temporarily set the current workspace.
 
     Example:
@@ -46,7 +46,7 @@ def workspace_context(workspace: "Workspace"):
         set_current_workspace(previous)
 
 
-def require_workspace() -> "Workspace":
+def require_workspace() -> Workspace:
     """Get the current workspace or raise an error.
 
     Use this in functions that require a workspace context.

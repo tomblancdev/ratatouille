@@ -5,8 +5,8 @@ Parsers for:
 - {{ ref() }} calls → Lineage diagrams
 """
 
-from .sql_comments import SQLRulesParser, extract_business_rules
 from .lineage import LineageParser, extract_lineage
+from .sql_comments import SQLRulesParser, extract_business_rules
 
 __all__ = [
     "SQLRulesParser",

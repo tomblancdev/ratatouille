@@ -13,7 +13,6 @@ Generates a README.md with:
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 
 from ..models import EnhancedPipelineConfig
 from ..parsers.lineage import LineageInfo
@@ -48,7 +47,9 @@ def generate_readme(
     display_name = pipeline_name.replace("_", " ").title()
     sections.append(f"# {display_name} Pipeline")
     sections.append("")
-    sections.append(f"> 🐀 Auto-generated documentation | Last updated: {datetime.now().strftime('%Y-%m-%d')}")
+    sections.append(
+        f"> 🐀 Auto-generated documentation | Last updated: {datetime.now().strftime('%Y-%m-%d')}"
+    )
     sections.append("")
 
     # Tags
@@ -112,18 +113,26 @@ def generate_readme(
     if pii_columns:
         sections.append("## ⚠️ PII Notice")
         sections.append("")
-        sections.append("This pipeline contains personally identifiable information (PII):")
+        sections.append(
+            "This pipeline contains personally identifiable information (PII):"
+        )
         sections.append("")
         for col in pii_columns:
             pii_type = f" ({col.pii_type})" if col.pii_type else ""
-            sections.append(f"- `{col.name}`{pii_type}: {col.description or 'No description'}")
+            sections.append(
+                f"- `{col.name}`{pii_type}: {col.description or 'No description'}"
+            )
         sections.append("")
 
     # Links to detailed docs
     sections.append("## Documentation")
     sections.append("")
-    sections.append("- [Data Dictionary](docs/data_dictionary.md) - Column definitions and types")
-    sections.append("- [Business Rules](docs/business_rules.md) - Data validation logic")
+    sections.append(
+        "- [Data Dictionary](docs/data_dictionary.md) - Column definitions and types"
+    )
+    sections.append(
+        "- [Business Rules](docs/business_rules.md) - Data validation logic"
+    )
     sections.append("- [Lineage](docs/lineage.md) - Dependency diagram")
     sections.append("")
 
@@ -140,7 +149,9 @@ def generate_readme(
         if len(config.columns) > 10:
             sections.append(f"| ... | *{len(config.columns) - 10} more columns* | | |")
         sections.append("")
-        sections.append("See [Data Dictionary](docs/data_dictionary.md) for full schema.")
+        sections.append(
+            "See [Data Dictionary](docs/data_dictionary.md) for full schema."
+        )
         sections.append("")
 
     # Manual content section
@@ -151,7 +162,9 @@ def generate_readme(
     else:
         sections.append("## Additional Notes")
         sections.append("")
-        sections.append("*Add your manual notes here. This section is preserved on regeneration.*")
+        sections.append(
+            "*Add your manual notes here. This section is preserved on regeneration.*"
+        )
     sections.append(MANUAL_END)
     sections.append("")
 

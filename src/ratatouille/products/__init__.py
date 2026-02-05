@@ -44,34 +44,34 @@ Example - Permissions:
         print("Access granted!")
 """
 
-from .registry import (
-    ProductRegistry,
-    Product,
-    ProductVersion,
-    AccessRule,
-)
-from .publish import (
-    publish_product,
-    publish_from_config,
-    bump_version,
-    PublishResult,
-)
 from .consume import (
-    consume_product,
-    consume_from_config,
-    query_product,
-    list_available_products,
-    get_product_schema,
-    validate_subscription_schema,
-    refresh_subscriptions,
     ConsumeResult,
+    consume_from_config,
+    consume_product,
+    get_product_schema,
+    list_available_products,
+    query_product,
+    refresh_subscriptions,
+    validate_subscription_schema,
 )
 from .permissions import (
-    PermissionManager,
     PermissionCheck,
-    require_permission,
+    PermissionManager,
     grant_read_all,
     grant_team_access,
+    require_permission,
+)
+from .publish import (
+    PublishResult,
+    bump_version,
+    publish_from_config,
+    publish_product,
+)
+from .registry import (
+    AccessRule,
+    Product,
+    ProductRegistry,
+    ProductVersion,
 )
 
 __all__ = [

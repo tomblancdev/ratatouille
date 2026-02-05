@@ -8,9 +8,9 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from pyiceberg.catalog.sql import SqlCatalog
-import pyarrow as pa
 import pandas as pd
+import pyarrow as pa
+from pyiceberg.catalog.sql import SqlCatalog
 
 
 def _fix_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
@@ -22,7 +22,7 @@ def _fix_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-@lru_cache()
+@lru_cache
 def get_catalog():
     """Get the Iceberg catalog (cached singleton).
 
@@ -38,6 +38,7 @@ def get_catalog():
     except PermissionError:
         # Fallback to home directory if /app is not writable
         import tempfile
+
         catalog_path = os.path.join(tempfile.gettempdir(), "ratatouille-iceberg")
         Path(catalog_path).mkdir(parents=True, exist_ok=True)
         print(f"⚠️ Using fallback catalog path: {catalog_path}")
@@ -45,7 +46,7 @@ def get_catalog():
     def _require_env(name: str) -> str:
         value = os.getenv(name)
         if not value:
-            raise EnvironmentError(
+            raise OSError(
                 f"Missing required environment variable: {name}\n"
                 f"Make sure you have a .env file. See .env.example for reference."
             )
@@ -65,7 +66,7 @@ def get_catalog():
             "s3.access-key-id": s3_access_key,
             "s3.secret-access-key": s3_secret_key,
             "s3.path-style-access": "true",  # Required for MinIO
-        }
+        },
     )
 
 
@@ -253,11 +254,13 @@ def table_history(name: str) -> pd.DataFrame:
 
     snapshots = []
     for snapshot in table.metadata.snapshots:
-        snapshots.append({
-            "snapshot_id": snapshot.snapshot_id,
-            "timestamp": snapshot.timestamp_ms,
-            "operation": snapshot.summary.operation if snapshot.summary else None,
-        })
+        snapshots.append(
+            {
+                "snapshot_id": snapshot.snapshot_id,
+                "timestamp": snapshot.timestamp_ms,
+                "operation": snapshot.summary.operation if snapshot.summary else None,
+            }
+        )
 
     return pd.DataFrame(snapshots)
 
@@ -312,8 +315,7 @@ def create_branch(table: str, branch_name: str) -> str:
 
     # Create branch pointing to current snapshot
     ice_table.manage_snapshots().create_branch(
-        snapshot_id=current.snapshot_id,
-        branch_name=branch_name
+        snapshot_id=current.snapshot_id, branch_name=branch_name
     ).commit()
 
     return branch_name
@@ -337,11 +339,13 @@ def list_branches(table: str) -> list[dict]:
 
     branches = []
     for ref_name, ref in ice_table.metadata.refs.items():
-        branches.append({
-            "name": ref_name,
-            "type": ref.snapshot_ref_type,
-            "snapshot_id": ref.snapshot_id,
-        })
+        branches.append(
+            {
+                "name": ref_name,
+                "type": ref.snapshot_ref_type,
+                "snapshot_id": ref.snapshot_id,
+            }
+        )
 
     return branches
 

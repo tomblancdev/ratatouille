@@ -6,9 +6,12 @@ Outputs structured JSON for CI/CD integration.
 import json
 import sys
 from datetime import datetime
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from ..models import TestSuiteResult
+
+if TYPE_CHECKING:
+    from ..models import TestOutput
 
 
 class JSONReporter:

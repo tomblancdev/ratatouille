@@ -2,15 +2,12 @@
 
 import time
 from pathlib import Path
-from typing import Literal
 
 from .discovery import discover_pipelines
 from .executors.quality import QualityTestExecutor
 from .executors.unit_sql import UnitSQLTestExecutor
 from .models import (
     DiscoveredPipeline,
-    DiscoveredTest,
-    TestOutput,
     TestSuiteResult,
 )
 from .reporters.console import ConsoleReporter
@@ -81,7 +78,11 @@ class TestRunner:
                 results.append(suite)
 
                 # Check for fail-fast
-                if not suite.success and hasattr(self.reporter, "fail_fast") and self.reporter.fail_fast:
+                if (
+                    not suite.success
+                    and hasattr(self.reporter, "fail_fast")
+                    and self.reporter.fail_fast
+                ):
                     break
 
         self.reporter.report_summary(results)
@@ -123,7 +124,11 @@ class TestRunner:
                     break
 
         # Run unit SQL tests
-        if run_unit and not (suite.failed > 0 and hasattr(self.reporter, "fail_fast") and self.reporter.fail_fast):
+        if run_unit and not (
+            suite.failed > 0
+            and hasattr(self.reporter, "fail_fast")
+            and self.reporter.fail_fast
+        ):
             for test in pipeline.unit_tests:
                 if test.test_type == "unit_sql":
                     result = self.unit_sql_executor.execute(pipeline, test)

@@ -22,6 +22,7 @@ from pathlib import Path
 
 import duckdb
 
+from ..mocks.loader import MockLoader
 from ..models import (
     DiscoveredPipeline,
     DiscoveredTest,
@@ -29,8 +30,7 @@ from ..models import (
     TestOutput,
     TestStatus,
 )
-from ..mocks.loader import MockLoader
-from .base import BaseTestExecutor, ExecutionTimer
+from .base import BaseTestExecutor
 
 
 class UnitSQLTestExecutor(BaseTestExecutor):
@@ -91,7 +91,11 @@ class UnitSQLTestExecutor(BaseTestExecutor):
                 # Execute the transformation
                 result = conn.execute(compiled_sql)
                 rows = result.fetchall()
-                columns = [desc[0] for desc in result.description] if result.description else []
+                columns = (
+                    [desc[0] for desc in result.description]
+                    if result.description
+                    else []
+                )
                 row_count = len(rows)
 
                 # Compare with expected results (using SQL)
@@ -112,6 +116,7 @@ class UnitSQLTestExecutor(BaseTestExecutor):
                 data = None
                 if not passed or row_count <= 10:
                     import pandas as pd
+
                     data = pd.DataFrame(rows[:10], columns=columns)
 
                 return TestOutput(
@@ -216,7 +221,9 @@ class UnitSQLTestExecutor(BaseTestExecutor):
             column = match.group(1)
             return watermarks.get(column, "1970-01-01 00:00:00")
 
-        sql = re.sub(r"\{\{\s*watermark\(['\"]([^'\"]+)['\"]\)\s*\}\}", replace_watermark, sql)
+        sql = re.sub(
+            r"\{\{\s*watermark\(['\"]([^'\"]+)['\"]\)\s*\}\}", replace_watermark, sql
+        )
 
         # Replace {{ this }}
         sql = re.sub(r"\{\{\s*this\s*\}\}", pipeline.name, sql)
@@ -274,14 +281,16 @@ class UnitSQLTestExecutor(BaseTestExecutor):
 
                 conn.execute(f"""
                     CREATE TABLE _actual ({cols_str}) AS
-                    SELECT * FROM (VALUES {', '.join(values)}) AS t({cols_str})
+                    SELECT * FROM (VALUES {", ".join(values)}) AS t({cols_str})
                 """)
 
             # Determine columns to compare
             compare_cols = expected.columns or list(expected.rows[0].keys())
 
             # Create expected table via temp file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 json.dump(expected.rows, f)
                 temp_path = f.name
             try:

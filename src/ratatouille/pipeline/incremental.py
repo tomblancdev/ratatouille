@@ -9,7 +9,6 @@ Incremental pipelines only process new/changed data by:
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -33,13 +32,15 @@ class WatermarkState:
         return {
             "pipeline_name": self.pipeline_name,
             "column": self.column,
-            "value": self.value if not isinstance(self.value, datetime) else self.value.isoformat(),
+            "value": self.value
+            if not isinstance(self.value, datetime)
+            else self.value.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "row_count": self.row_count,
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "WatermarkState":
+    def from_dict(cls, data: dict) -> WatermarkState:
         """Create from dictionary."""
         updated_at = data["updated_at"]
         if isinstance(updated_at, str):
@@ -172,9 +173,7 @@ class WatermarkTracker:
         """
         if pipeline_name not in self._state:
             return {}
-        return {
-            col: state.value for col, state in self._state[pipeline_name].items()
-        }
+        return {col: state.value for col, state in self._state[pipeline_name].items()}
 
     def reset(self, pipeline_name: str, column: str | None = None) -> None:
         """Reset watermarks for a pipeline.
@@ -202,9 +201,7 @@ class WatermarkTracker:
         """
         if pipeline_name not in self._state:
             return []
-        return [
-            state.to_dict() for state in self._state[pipeline_name].values()
-        ]
+        return [state.to_dict() for state in self._state[pipeline_name].values()]
 
 
 def compute_watermark(

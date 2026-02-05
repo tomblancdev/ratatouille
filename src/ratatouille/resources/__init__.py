@@ -10,7 +10,7 @@ All limits are configurable per-workspace.
 """
 
 from .config import ResourceConfig, get_resource_config
-from .profiles import load_profile, PROFILES
+from .profiles import PROFILES, load_profile
 
 __all__ = [
     "ResourceConfig",

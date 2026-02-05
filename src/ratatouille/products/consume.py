@@ -10,13 +10,11 @@ Handles:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
 if TYPE_CHECKING:
-    from ratatouille.engine.duckdb import DuckDBEngine
     from ratatouille.workspace.manager import Workspace
 
 from .registry import ProductRegistry, ProductVersion
@@ -40,7 +38,7 @@ class ConsumeResult:
 
 
 def consume_product(
-    workspace: "Workspace",
+    workspace: Workspace,
     product_name: str,
     version_constraint: str = "latest",
     local_alias: str | None = None,
@@ -132,7 +130,7 @@ def consume_product(
 
 
 def consume_from_config(
-    workspace: "Workspace",
+    workspace: Workspace,
     registry: ProductRegistry | None = None,
 ) -> list[ConsumeResult]:
     """Consume all products defined in workspace config subscriptions.
@@ -169,7 +167,7 @@ def consume_from_config(
 
 
 def query_product(
-    workspace: "Workspace",
+    workspace: Workspace,
     product_name: str,
     query: str | None = None,
     version_constraint: str = "latest",
@@ -208,7 +206,9 @@ def query_product(
     # Resolve version
     version = registry.resolve_version(product_name, version_constraint)
     if version is None:
-        raise ValueError(f"No version found for '{product_name}' matching '{version_constraint}'")
+        raise ValueError(
+            f"No version found for '{product_name}' matching '{version_constraint}'"
+        )
 
     engine = workspace.get_engine()
 
@@ -219,16 +219,13 @@ def query_product(
         full_query = f"SELECT * FROM read_parquet('{parquet_path}')"
     else:
         # Replace 'product' placeholder with actual path
-        full_query = query.replace(
-            "product",
-            f"read_parquet('{parquet_path}')"
-        )
+        full_query = query.replace("product", f"read_parquet('{parquet_path}')")
 
     return engine.query(full_query)
 
 
 def list_available_products(
-    workspace: "Workspace",
+    workspace: Workspace,
     registry: ProductRegistry | None = None,
 ) -> list[dict[str, Any]]:
     """List all products available to a workspace.
@@ -260,17 +257,19 @@ def list_available_products(
 
             access_level = "admin" if has_admin else ("write" if has_write else "read")
 
-            available.append({
-                "name": product.name,
-                "owner": product.owner_workspace,
-                "description": product.description,
-                "tags": product.tags,
-                "latest_version": latest.version if latest else None,
-                "row_count": latest.row_count if latest else 0,
-                "access_level": access_level,
-                "sla_freshness_hours": product.sla_freshness_hours,
-                "is_deprecated": product.is_deprecated,
-            })
+            available.append(
+                {
+                    "name": product.name,
+                    "owner": product.owner_workspace,
+                    "description": product.description,
+                    "tags": product.tags,
+                    "latest_version": latest.version if latest else None,
+                    "row_count": latest.row_count if latest else 0,
+                    "access_level": access_level,
+                    "sla_freshness_hours": product.sla_freshness_hours,
+                    "is_deprecated": product.is_deprecated,
+                }
+            )
 
     return available
 
@@ -301,7 +300,7 @@ def get_product_schema(
 
 
 def validate_subscription_schema(
-    workspace: "Workspace",
+    workspace: Workspace,
     product_name: str,
     expected_columns: list[str],
     registry: ProductRegistry | None = None,
@@ -339,7 +338,7 @@ def validate_subscription_schema(
 
 
 def _create_product_view(
-    workspace: "Workspace",
+    workspace: Workspace,
     version: ProductVersion,
     alias: str,
 ) -> bool:
@@ -369,7 +368,7 @@ def _create_product_view(
 
 
 def refresh_subscriptions(
-    workspace: "Workspace",
+    workspace: Workspace,
     registry: ProductRegistry | None = None,
 ) -> list[ConsumeResult]:
     """Refresh all subscriptions to latest matching versions.

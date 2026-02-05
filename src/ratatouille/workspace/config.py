@@ -12,9 +12,7 @@ from pydantic import BaseModel, Field
 class IsolationConfig(BaseModel):
     """Workspace isolation settings."""
 
-    nessie_branch: str = Field(
-        description="Dedicated Nessie branch for this workspace"
-    )
+    nessie_branch: str = Field(description="Dedicated Nessie branch for this workspace")
     s3_prefix: str = Field(
         description="S3 prefix for all workspace data (e.g., 'acme' -> s3://warehouse/acme/)"
     )
@@ -24,12 +22,10 @@ class LayerConfig(BaseModel):
     """Medallion layer configuration."""
 
     retention_days: int | None = Field(
-        default=None,
-        description="Data retention in days (null = forever)"
+        default=None, description="Data retention in days (null = forever)"
     )
     partition_by: list[str] = Field(
-        default_factory=list,
-        description="Default partition columns for this layer"
+        default_factory=list, description="Default partition columns for this layer"
     )
 
 
@@ -48,11 +44,10 @@ class ProductPublishConfig(BaseModel):
     source: str = Field(description="Source table (e.g., 'gold.daily_kpis')")
     access: list[dict] = Field(
         default_factory=list,
-        description="Access rules: [{'workspace': '*', 'level': 'read'}]"
+        description="Access rules: [{'workspace': '*', 'level': 'read'}]",
     )
     sla: dict = Field(
-        default_factory=dict,
-        description="SLA settings: {'freshness_hours': 24}"
+        default_factory=dict, description="SLA settings: {'freshness_hours': 24}"
     )
 
 
@@ -60,13 +55,10 @@ class ProductSubscriptionConfig(BaseModel):
     """Data product subscription configuration."""
 
     product: str = Field(description="Product name to subscribe to")
-    alias: str | None = Field(
-        default=None,
-        description="Local alias for the product"
-    )
+    alias: str | None = Field(default=None, description="Local alias for the product")
     version_constraint: str = Field(
         default="latest",
-        description="Version constraint (e.g., '2.x', '^2.0.0', 'latest')"
+        description="Version constraint (e.g., '2.x', '^2.0.0', 'latest')",
     )
 
 
@@ -133,23 +125,21 @@ class WorkspaceConfig(BaseModel):
     layers: LayersConfig = Field(default_factory=LayersConfig)
 
     products: list[ProductPublishConfig] = Field(
-        default_factory=list,
-        description="Data products this workspace publishes"
+        default_factory=list, description="Data products this workspace publishes"
     )
     subscriptions: list[ProductSubscriptionConfig] = Field(
-        default_factory=list,
-        description="Data products this workspace subscribes to"
+        default_factory=list, description="Data products this workspace subscribes to"
     )
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "WorkspaceConfig":
+    def from_yaml(cls, path: Path | str) -> WorkspaceConfig:
         """Load configuration from a YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f)
         return cls(**data)
 
     @classmethod
-    def from_directory(cls, workspace_dir: Path | str) -> "WorkspaceConfig":
+    def from_directory(cls, workspace_dir: Path | str) -> WorkspaceConfig:
         """Load configuration from a workspace directory."""
         workspace_dir = Path(workspace_dir)
         config_path = workspace_dir / "workspace.yaml"

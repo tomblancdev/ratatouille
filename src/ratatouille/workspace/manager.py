@@ -32,11 +32,11 @@ class Workspace:
     def __init__(self, path: Path, config: WorkspaceConfig):
         self.path = path
         self.config = config
-        self._engine: "DuckDBEngine | None" = None
-        self._resources: "ResourceConfig | None" = None
+        self._engine: DuckDBEngine | None = None
+        self._resources: ResourceConfig | None = None
 
     @classmethod
-    def load(cls, name_or_path: str | Path) -> "Workspace":
+    def load(cls, name_or_path: str | Path) -> Workspace:
         """Load a workspace by name or path.
 
         Args:
@@ -64,7 +64,7 @@ class Workspace:
         name: str,
         base_dir: Path | str | None = None,
         description: str = "",
-    ) -> "Workspace":
+    ) -> Workspace:
         """Create a new workspace with default structure.
 
         Args:
@@ -148,28 +148,28 @@ class Workspace:
         return os.getenv("NESSIE_URI", "http://localhost:19120/api/v2")
 
     @property
-    def resources(self) -> "ResourceConfig":
+    def resources(self) -> ResourceConfig:
         """Get resource configuration for this workspace."""
         if self._resources is None:
             from ratatouille.resources.config import ResourceConfig
 
             # Load base profile
-            self._resources = ResourceConfig.from_profile(
-                self.config.resources.profile
-            )
+            self._resources = ResourceConfig.from_profile(self.config.resources.profile)
 
             # Apply overrides
             overrides = self.config.resources.overrides
             if overrides.max_memory_mb:
                 self._resources.max_memory_mb = overrides.max_memory_mb
             if overrides.max_parallel_pipelines:
-                self._resources.max_parallel_pipelines = overrides.max_parallel_pipelines
+                self._resources.max_parallel_pipelines = (
+                    overrides.max_parallel_pipelines
+                )
             if overrides.chunk_size_rows:
                 self._resources.chunk_size_rows = overrides.chunk_size_rows
 
         return self._resources
 
-    def get_engine(self) -> "DuckDBEngine":
+    def get_engine(self) -> DuckDBEngine:
         """Get a DuckDB engine configured for this workspace."""
         if self._engine is None:
             from ratatouille.engine.duckdb import DuckDBEngine
@@ -260,7 +260,7 @@ def list_workspaces() -> list[str]:
     return sorted(workspaces)
 
 
-@lru_cache()
+@lru_cache
 def get_workspace(name: str | None = None) -> Workspace:
     """Get a workspace by name (cached).
 

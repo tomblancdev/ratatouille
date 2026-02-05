@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ..models import EnhancedPipelineConfig, BusinessRule
+from ..models import BusinessRule, EnhancedPipelineConfig
 
 
 def generate_business_rules(
@@ -37,7 +37,9 @@ def generate_business_rules(
     display_name = pipeline_name.replace("_", " ").title()
     sections.append(f"# Business Rules: {display_name}")
     sections.append("")
-    sections.append(f"> 🐀 Auto-generated | Layer: `{layer}` | Last updated: {datetime.now().strftime('%Y-%m-%d')}")
+    sections.append(
+        f"> 🐀 Auto-generated | Layer: `{layer}` | Last updated: {datetime.now().strftime('%Y-%m-%d')}"
+    )
     sections.append("")
 
     # Collect all rules
@@ -71,9 +73,13 @@ def generate_business_rules(
         sections.append("*No business rules documented or detected.*")
         sections.append("")
         sections.append("To add rules, either:")
-        sections.append("1. Add them to the `documentation.rules` section in config.yaml")
+        sections.append(
+            "1. Add them to the `documentation.rules` section in config.yaml"
+        )
         sections.append("2. Add column tests (not_null, unique, positive, etc.)")
-        sections.append("3. Add WHERE clauses to your SQL (they'll be extracted automatically)")
+        sections.append(
+            "3. Add WHERE clauses to your SQL (they'll be extracted automatically)"
+        )
         return "\n".join(sections)
 
     # Summary
@@ -121,7 +127,9 @@ def generate_business_rules(
     if test_derived:
         sections.append("## ✅ Test-Based Rules")
         sections.append("")
-        sections.append("These rules are enforced through column tests and custom data tests:")
+        sections.append(
+            "These rules are enforced through column tests and custom data tests:"
+        )
         sections.append("")
         for _, rule in test_derived:
             sections.extend(_format_rule(rule))
@@ -133,7 +141,13 @@ def generate_business_rules(
     sections.append("| Rule | Source | SQL |")
     sections.append("|------|--------|-----|")
     for source, rule in all_rules:
-        sql_snippet = f"`{rule.sql[:40]}...`" if rule.sql and len(rule.sql) > 40 else f"`{rule.sql}`" if rule.sql else "-"
+        sql_snippet = (
+            f"`{rule.sql[:40]}...`"
+            if rule.sql and len(rule.sql) > 40
+            else f"`{rule.sql}`"
+            if rule.sql
+            else "-"
+        )
         sections.append(f"| {rule.name} | {source} | {sql_snippet} |")
     sections.append("")
 

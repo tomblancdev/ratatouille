@@ -1,17 +1,11 @@
 """🧪 Tests for Data Products module."""
 
 import pytest
-import tempfile
-from pathlib import Path
-from datetime import datetime
 
+from ratatouille.products.permissions import PermissionManager
 from ratatouille.products.registry import (
     ProductRegistry,
-    Product,
-    ProductVersion,
-    AccessRule,
 )
-from ratatouille.products.permissions import PermissionManager
 
 
 class TestProductRegistry:
@@ -59,7 +53,9 @@ class TestProductRegistry:
         """Test listing products with filters."""
         registry.register_product(name="prod1", owner_workspace="ws1", tags=["tag1"])
         registry.register_product(name="prod2", owner_workspace="ws2", tags=["tag2"])
-        registry.register_product(name="prod3", owner_workspace="ws1", tags=["tag1", "tag2"])
+        registry.register_product(
+            name="prod3", owner_workspace="ws1", tags=["tag1", "tag2"]
+        )
 
         # All products
         all_products = registry.list_products()
@@ -109,19 +105,28 @@ class TestProductRegistry:
         registry.register_product(name="test", owner_workspace="ws1")
 
         registry.publish_version(
-            product_name="test", version="1.0.0",
-            source_workspace="ws1", source_table="t", schema_snapshot={},
-            s3_location="s3://v1/"
+            product_name="test",
+            version="1.0.0",
+            source_workspace="ws1",
+            source_table="t",
+            schema_snapshot={},
+            s3_location="s3://v1/",
         )
         registry.publish_version(
-            product_name="test", version="1.1.0",
-            source_workspace="ws1", source_table="t", schema_snapshot={},
-            s3_location="s3://v2/"
+            product_name="test",
+            version="1.1.0",
+            source_workspace="ws1",
+            source_table="t",
+            schema_snapshot={},
+            s3_location="s3://v2/",
         )
         registry.publish_version(
-            product_name="test", version="2.0.0",
-            source_workspace="ws1", source_table="t", schema_snapshot={},
-            s3_location="s3://v3/"
+            product_name="test",
+            version="2.0.0",
+            source_workspace="ws1",
+            source_table="t",
+            schema_snapshot={},
+            s3_location="s3://v3/",
         )
 
         latest = registry.get_latest_version("test")
@@ -133,9 +138,12 @@ class TestProductRegistry:
 
         for v in ["1.0.0", "1.1.0", "1.2.0", "2.0.0", "2.1.0"]:
             registry.publish_version(
-                product_name="test", version=v,
-                source_workspace="ws1", source_table="t", schema_snapshot={},
-                s3_location=f"s3://v{v}/"
+                product_name="test",
+                version=v,
+                source_workspace="ws1",
+                source_table="t",
+                schema_snapshot={},
+                s3_location=f"s3://v{v}/",
             )
 
         # Exact version

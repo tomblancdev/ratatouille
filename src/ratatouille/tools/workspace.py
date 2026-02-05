@@ -7,7 +7,6 @@ Functions for managing and exploring workspaces.
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
 from rich.console import Console
@@ -20,6 +19,7 @@ console = Console()
 @dataclass
 class WorkspaceInfo:
     """Information about a workspace."""
+
     name: str
     description: str
     version: str
@@ -31,6 +31,7 @@ class WorkspaceInfo:
 @dataclass
 class ProductInfo:
     """Information about a shared data product."""
+
     name: str
     source_workspace: str
     version: str
@@ -85,7 +86,7 @@ def info(workspace: str | None = None) -> WorkspaceInfo:
 
     # Try to load workspace.yaml
     workspace_paths = [
-        Path(f"/workspace/workspace.yaml"),  # DevContainer
+        Path("/workspace/workspace.yaml"),  # DevContainer
         Path(f"/app/workspaces/{ws}/workspace.yaml"),  # Docker
         Path(f"workspaces/{ws}/workspace.yaml"),  # Local
     ]
@@ -112,20 +113,22 @@ def info(workspace: str | None = None) -> WorkspaceInfo:
     )
 
     # Print panel
-    console.print(Panel(
-        f"""[bold]Name:[/bold] {workspace_info.name}
+    console.print(
+        Panel(
+            f"""[bold]Name:[/bold] {workspace_info.name}
 [bold]Version:[/bold] {workspace_info.version}
-[bold]Description:[/bold] {workspace_info.description[:100]}{'...' if len(workspace_info.description) > 100 else ''}
+[bold]Description:[/bold] {workspace_info.description[:100]}{"..." if len(workspace_info.description) > 100 else ""}
 
 [bold]Isolation:[/bold]
   Nessie Branch: {workspace_info.nessie_branch}
   S3 Prefix: {workspace_info.s3_prefix}
   Bucket: ratatouille-{workspace_info.name}
 
-[bold]Path:[/bold] {workspace_info.path or 'unknown'}""",
-        title=f"🐀 Workspace: {workspace_info.name}",
-        border_style="cyan",
-    ))
+[bold]Path:[/bold] {workspace_info.path or "unknown"}""",
+            title=f"🐀 Workspace: {workspace_info.name}",
+            border_style="cyan",
+        )
+    )
 
     return workspace_info
 
@@ -158,7 +161,9 @@ def workspaces() -> list[str]:
 
     if found_workspaces:
         current = current_workspace()
-        tbl = Table(title="📦 Available Workspaces", show_header=True, header_style="bold cyan")
+        tbl = Table(
+            title="📦 Available Workspaces", show_header=True, header_style="bold cyan"
+        )
         tbl.add_column("Workspace")
         tbl.add_column("Status")
 
@@ -243,13 +248,17 @@ def connections() -> dict[str, bool]:
     import httpx
 
     services = {
-        "minio": os.environ.get("MINIO_ENDPOINT", "http://localhost:9000") + "/minio/health/live",
-        "nessie": os.environ.get("NESSIE_URI", "http://localhost:19120/api/v1") + "/config",
+        "minio": os.environ.get("MINIO_ENDPOINT", "http://localhost:9000")
+        + "/minio/health/live",
+        "nessie": os.environ.get("NESSIE_URI", "http://localhost:19120/api/v1")
+        + "/config",
     }
 
     results = {}
 
-    tbl = Table(title="🔌 Service Connections", show_header=True, header_style="bold cyan")
+    tbl = Table(
+        title="🔌 Service Connections", show_header=True, header_style="bold cyan"
+    )
     tbl.add_column("Service")
     tbl.add_column("Status")
     tbl.add_column("Endpoint")
@@ -258,11 +267,13 @@ def connections() -> dict[str, bool]:
         try:
             response = httpx.get(url, timeout=5)
             connected = response.status_code < 400
-        except:
+        except Exception:
             connected = False
 
         results[name] = connected
-        status = "[green]● Connected[/green]" if connected else "[red]✗ Disconnected[/red]"
+        status = (
+            "[green]● Connected[/green]" if connected else "[red]✗ Disconnected[/red]"
+        )
         tbl.add_row(name, status, url.rsplit("/", 1)[0])
 
     console.print(tbl)

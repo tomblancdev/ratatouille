@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ..models import EnhancedPipelineConfig, EnhancedColumnConfig
+from ..models import EnhancedColumnConfig, EnhancedPipelineConfig
 
 
 def generate_data_dictionary(
@@ -36,7 +36,9 @@ def generate_data_dictionary(
     display_name = pipeline_name.replace("_", " ").title()
     sections.append(f"# Data Dictionary: {display_name}")
     sections.append("")
-    sections.append(f"> 🐀 Auto-generated | Layer: `{layer}` | Last updated: {datetime.now().strftime('%Y-%m-%d')}")
+    sections.append(
+        f"> 🐀 Auto-generated | Layer: `{layer}` | Last updated: {datetime.now().strftime('%Y-%m-%d')}"
+    )
     sections.append("")
 
     if not config.columns:
@@ -69,7 +71,9 @@ def generate_data_dictionary(
         pii = "⚠️" if col.is_pii() else ("✓" if col.pii is False else "?")
         required = "✓" if "not_null" in col.tests else ""
         unique = "✓" if "unique" in col.tests else ""
-        sections.append(f"| `{col.name}` | {col.type} | {pii} | {required} | {unique} |")
+        sections.append(
+            f"| `{col.name}` | {col.type} | {pii} | {required} | {unique} |"
+        )
     sections.append("")
 
     # Detailed column definitions
@@ -164,13 +168,17 @@ def generate_pii_report(config: EnhancedPipelineConfig, pipeline_name: str) -> s
         sections.append("|--------|------|----------------|-------------|")
         for col in pii_columns:
             pii_type = col.pii_type or "unclassified"
-            sections.append(f"| `{col.name}` | {col.type} | {pii_type} | {col.description or '-'} |")
+            sections.append(
+                f"| `{col.name}` | {col.type} | {pii_type} | {col.description or '-'} |"
+            )
         sections.append("")
 
     if unmarked:
         sections.append("## ❓ Columns Missing PII Marking")
         sections.append("")
-        sections.append("The following columns need `pii: true` or `pii: false` in config.yaml:")
+        sections.append(
+            "The following columns need `pii: true` or `pii: false` in config.yaml:"
+        )
         sections.append("")
         for name in unmarked:
             sections.append(f"- `{name}`")

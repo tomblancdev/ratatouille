@@ -9,10 +9,10 @@ Templates for generating:
 All templates support manual content preservation via markers.
 """
 
-from .readme import generate_readme
-from .data_dictionary import generate_data_dictionary
 from .business_rules import generate_business_rules
+from .data_dictionary import generate_data_dictionary
 from .lineage import generate_lineage
+from .readme import generate_readme
 
 __all__ = [
     "generate_readme",

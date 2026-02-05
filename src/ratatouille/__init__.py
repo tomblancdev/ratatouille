@@ -35,4 +35,5 @@ def __getattr__(name: str) -> object:
         return RatatouilleSDK()
     raise AttributeError(f"module 'ratatouille' has no attribute '{name}'")
 
+
 __all__ = ["tools", "sdk", "__version__"]

@@ -15,20 +15,20 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator
 
 from rich.console import Console
 
 from .models import EnhancedPipelineConfig, load_enhanced_config
+from .parsers.lineage import LineageInfo, LineageParser
 from .parsers.sql_comments import extract_business_rules
-from .parsers.lineage import LineageParser, LineageInfo
 from .templates import (
-    generate_readme,
-    generate_data_dictionary,
     generate_business_rules,
+    generate_data_dictionary,
     generate_lineage,
+    generate_readme,
 )
 
 
@@ -82,7 +82,9 @@ class DocumentationGenerator:
         results = []
 
         # Build complete lineage map first
-        self._lineage_map = self._lineage_parser.build_workspace_lineage(self.workspace_path)
+        self._lineage_map = self._lineage_parser.build_workspace_lineage(
+            self.workspace_path
+        )
 
         # Find all pipelines
         for pipeline_path in self._discover_pipelines():
@@ -102,7 +104,9 @@ class DocumentationGenerator:
         """
         # Build lineage map if not already done
         if not self._lineage_map:
-            self._lineage_map = self._lineage_parser.build_workspace_lineage(self.workspace_path)
+            self._lineage_map = self._lineage_parser.build_workspace_lineage(
+                self.workspace_path
+            )
 
         pipeline_path = self.workspace_path / "pipelines" / pipeline
         if not pipeline_path.exists():
@@ -167,7 +171,9 @@ class DocumentationGenerator:
 
             # Get lineage
             pipeline_key = f"{layer}.{name}"
-            lineage = self._lineage_map.get(pipeline_key, LineageInfo(pipeline=pipeline_key))
+            lineage = self._lineage_map.get(
+                pipeline_key, LineageInfo(pipeline=pipeline_key)
+            )
 
             # Load SQL for rule extraction
             sql_rules = []
@@ -179,7 +185,11 @@ class DocumentationGenerator:
                     lineage = self._lineage_parser.parse_file(sql_file, pipeline_key)
 
             # Ensure docs directory exists
-            docs_dir = pipeline_path / "docs" if pipeline_path.is_dir() else pipeline_path.parent / name / "docs"
+            docs_dir = (
+                pipeline_path / "docs"
+                if pipeline_path.is_dir()
+                else pipeline_path.parent / name / "docs"
+            )
             docs_dir.mkdir(parents=True, exist_ok=True)
 
             # Ensure pipeline directory exists for folder-based structure
@@ -190,7 +200,9 @@ class DocumentationGenerator:
             # Generate README
             readme_path = pipeline_path / "README.md"
             existing_readme = readme_path.read_text() if readme_path.exists() else None
-            readme_content = generate_readme(config, name, layer, lineage, existing_readme)
+            readme_content = generate_readme(
+                config, name, layer, lineage, existing_readme
+            )
             self._write_file(readme_path, readme_content, result)
 
             # Generate data dictionary

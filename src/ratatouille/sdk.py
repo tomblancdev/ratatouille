@@ -25,8 +25,8 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 if TYPE_CHECKING:
-    from ratatouille.workspace.manager import Workspace
     from ratatouille.engine.duckdb import DuckDBEngine
+    from ratatouille.workspace.manager import Workspace
 
 
 class RatatouilleSDK:
@@ -45,14 +45,14 @@ class RatatouilleSDK:
     """
 
     def __init__(self):
-        self._workspace: "Workspace | None" = None
-        self._engine: "DuckDBEngine | None" = None
+        self._workspace: Workspace | None = None
+        self._engine: DuckDBEngine | None = None
 
     # =========================================================================
     # Workspace Operations
     # =========================================================================
 
-    def workspace(self, name: str | None = None) -> "Workspace":
+    def workspace(self, name: str | None = None) -> Workspace:
         """Load or get current workspace.
 
         Args:
@@ -77,7 +77,7 @@ class RatatouilleSDK:
         return self._workspace
 
     @property
-    def ws(self) -> "Workspace":
+    def ws(self) -> Workspace:
         """Get current workspace (shorthand)."""
         if self._workspace is None:
             return self.workspace()
@@ -88,7 +88,7 @@ class RatatouilleSDK:
         name: str,
         description: str = "",
         base_dir: str | None = None,
-    ) -> "Workspace":
+    ) -> Workspace:
         """Create a new workspace.
 
         Args:
@@ -116,7 +116,7 @@ class RatatouilleSDK:
     # Query Operations (DuckDB)
     # =========================================================================
 
-    def engine(self) -> "DuckDBEngine":
+    def engine(self) -> DuckDBEngine:
         """Get DuckDB engine for current workspace."""
         if self._engine is None:
             self._engine = self.ws.get_engine()
@@ -151,7 +151,9 @@ class RatatouilleSDK:
         """
         return self.query(f"SELECT * FROM read_parquet('{path}')")
 
-    def write(self, df: pd.DataFrame, path: str, partition_by: list[str] | None = None) -> str:
+    def write(
+        self, df: pd.DataFrame, path: str, partition_by: list[str] | None = None
+    ) -> str:
         """Write DataFrame to S3 as Parquet.
 
         Args:

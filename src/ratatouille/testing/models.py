@@ -9,18 +9,26 @@ import pandas as pd
 from pydantic import BaseModel, Field
 
 
-class TestSeverity(str, Enum):
+class TestSeverity(Enum):
     """Severity level for test failures."""
+
     WARN = "warn"
     ERROR = "error"
 
+    def __str__(self) -> str:
+        return self.value
 
-class TestStatus(str, Enum):
+
+class TestStatus(Enum):
     """Status of a test execution."""
+
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
     ERROR = "error"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class MockData(BaseModel):
@@ -34,32 +42,28 @@ class MockData(BaseModel):
     - Parquet files
     - Python generators
     """
-    table: str = Field(..., description="Table name to create, e.g., 'bronze.raw_sales'")
+
+    table: str = Field(
+        ..., description="Table name to create, e.g., 'bronze.raw_sales'"
+    )
 
     # Inline data
     rows: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="Inline row data as list of dicts"
+        default=None, description="Inline row data as list of dicts"
     )
 
     # File-based data
     file: str | None = Field(
-        default=None,
-        description="Path to data file (CSV, Excel, JSON, Parquet)"
+        default=None, description="Path to data file (CSV, Excel, JSON, Parquet)"
     )
-    sheet: str | None = Field(
-        default=None,
-        description="Sheet name for Excel files"
-    )
+    sheet: str | None = Field(default=None, description="Sheet name for Excel files")
 
     # Generator-based data
     generator: str | None = Field(
-        default=None,
-        description="Path to Python generator file"
+        default=None, description="Path to Python generator file"
     )
     generator_args: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Arguments to pass to generator"
+        default_factory=dict, description="Arguments to pass to generator"
     )
 
 
@@ -67,24 +71,17 @@ class ExpectedResult(BaseModel):
     """Expected output for unit tests."""
 
     rows: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="Expected rows (compared with actual)"
+        default=None, description="Expected rows (compared with actual)"
     )
     columns: list[str] | None = Field(
-        default=None,
-        description="Columns to compare (subset of output)"
+        default=None, description="Columns to compare (subset of output)"
     )
-    row_count: int | None = Field(
-        default=None,
-        description="Expected number of rows"
-    )
+    row_count: int | None = Field(default=None, description="Expected number of rows")
     tolerance: float = Field(
-        default=0.01,
-        description="Tolerance for numeric comparisons"
+        default=0.01, description="Tolerance for numeric comparisons"
     )
     order_by: list[str] | None = Field(
-        default=None,
-        description="Columns to sort by before comparison"
+        default=None, description="Columns to sort by before comparison"
     )
 
 
@@ -97,32 +94,28 @@ class TestConfig(BaseModel):
     -- @severity: error
     -- @mocks: mocks/data.yaml
     """
+
     name: str = Field(..., description="Unique test name")
     description: str = Field(default="", description="Human-readable description")
     severity: TestSeverity = Field(default=TestSeverity.ERROR)
 
     # For quality tests
     expect_zero_rows: bool = Field(
-        default=True,
-        description="Test passes if query returns 0 rows"
+        default=True, description="Test passes if query returns 0 rows"
     )
 
     # For unit tests
     mocks: list[str] = Field(
-        default_factory=list,
-        description="Paths to mock data files"
+        default_factory=list, description="Paths to mock data files"
     )
     mode: Literal["full_refresh", "incremental"] = Field(
-        default="full_refresh",
-        description="Pipeline execution mode"
+        default="full_refresh", description="Pipeline execution mode"
     )
     watermarks: dict[str, str] = Field(
-        default_factory=dict,
-        description="Watermark values for incremental mode"
+        default_factory=dict, description="Watermark values for incremental mode"
     )
     expect: ExpectedResult | None = Field(
-        default=None,
-        description="Expected output for unit tests"
+        default=None, description="Expected output for unit tests"
     )
 
 
@@ -133,6 +126,7 @@ class TestOutput:
     Contains all information needed to understand what happened
     and debug failures.
     """
+
     name: str
     description: str
     test_type: Literal["quality", "unit_sql", "unit_python"]
@@ -180,7 +174,9 @@ class TestOutput:
             "message": self.message,
             "metadata": self.metadata,
             # Data is converted separately if needed
-            "data": self.data.to_dict(orient="records") if self.data is not None else None,
+            "data": self.data.to_dict(orient="records")
+            if self.data is not None
+            else None,
             "sql": self.sql,
         }
 
@@ -188,6 +184,7 @@ class TestOutput:
 @dataclass
 class TestSuiteResult:
     """Result of running all tests for a pipeline."""
+
     pipeline: str
     workspace: str
     layer: str
@@ -247,6 +244,7 @@ class TestSuiteResult:
 @dataclass
 class DiscoveredTest:
     """A test file discovered in a pipeline's tests/ folder."""
+
     path: Path
     test_type: Literal["quality", "unit_sql", "unit_python"]
     config: TestConfig
@@ -261,13 +259,14 @@ class DiscoveredTest:
 @dataclass
 class DiscoveredPipeline:
     """A pipeline discovered in the workspace."""
+
     name: str
     layer: str
     path: Path
 
     # Pipeline file
     pipeline_file: Path | None = None  # pipeline.sql or pipeline.py
-    config_file: Path | None = None     # config.yaml
+    config_file: Path | None = None  # config.yaml
 
     # Test folders
     tests_path: Path | None = None

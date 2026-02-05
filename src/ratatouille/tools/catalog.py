@@ -11,8 +11,8 @@ from typing import Any
 import duckdb
 import pandas as pd
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 console = Console()
 
@@ -20,6 +20,7 @@ console = Console()
 @dataclass
 class TableInfo:
     """Information about a table."""
+
     name: str
     layer: str
     workspace: str
@@ -47,6 +48,7 @@ class TableInfo:
 @dataclass
 class ColumnInfo:
     """Information about a column."""
+
     name: str
     dtype: str
     nullable: bool = True
@@ -143,13 +145,19 @@ def tables(
 
     # Print table
     if table_list:
-        tbl = Table(title=f"📊 Tables in {ws}", show_header=True, header_style="bold cyan")
+        tbl = Table(
+            title=f"📊 Tables in {ws}", show_header=True, header_style="bold cyan"
+        )
         tbl.add_column("Table")
         tbl.add_column("Layer")
         tbl.add_column("Path")
 
         for t in sorted(table_list, key=lambda x: (layers().index(x.layer), x.name)):
-            layer_color = {"bronze": "yellow", "silver": "white", "gold": "bright_yellow"}[t.layer]
+            layer_color = {
+                "bronze": "yellow",
+                "silver": "white",
+                "gold": "bright_yellow",
+            }[t.layer]
             tbl.add_row(
                 t.name,
                 f"[{layer_color}]{t.layer}[/{layer_color}]",
@@ -185,7 +193,7 @@ def schema(table: str, layer: str | None = None) -> list[ColumnInfo]:
         for lyr in layers():
             try:
                 return schema(table, lyr)
-            except:
+            except Exception:
                 continue
         raise ValueError(f"Table '{table}' not found in any layer")
 
@@ -195,7 +203,9 @@ def schema(table: str, layer: str | None = None) -> list[ColumnInfo]:
     conn = _get_connection()
     try:
         # Use DESCRIBE to get schema
-        result = conn.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}')").fetchall()
+        result = conn.execute(
+            f"DESCRIBE SELECT * FROM read_parquet('{path}')"
+        ).fetchall()
 
         columns: list[ColumnInfo] = []
         for row in result:
@@ -208,7 +218,11 @@ def schema(table: str, layer: str | None = None) -> list[ColumnInfo]:
             )
 
         # Print table
-        tbl = Table(title=f"📋 Schema: {layer}.{table}", show_header=True, header_style="bold cyan")
+        tbl = Table(
+            title=f"📋 Schema: {layer}.{table}",
+            show_header=True,
+            header_style="bold cyan",
+        )
         tbl.add_column("Column")
         tbl.add_column("Type")
         tbl.add_column("Nullable")
@@ -260,7 +274,9 @@ def count(table: str, layer: str | None = None) -> int:
     if "." in table:
         layer, table = table.split(".", 1)
     elif layer is None:
-        raise ValueError("Layer must be specified or included in table name (e.g., 'silver.events')")
+        raise ValueError(
+            "Layer must be specified or included in table name (e.g., 'silver.events')"
+        )
 
     bucket = _get_bucket()
     path = f"s3://{bucket}/{layer}/{table}/*.parquet"
@@ -316,7 +332,9 @@ def preview(
 
     conn = _get_connection()
     try:
-        df = conn.execute(f"SELECT {col_expr} FROM read_parquet('{path}') LIMIT {limit}").fetchdf()
+        df = conn.execute(
+            f"SELECT {col_expr} FROM read_parquet('{path}') LIMIT {limit}"
+        ).fetchdf()
 
         console.print(f"\n📊 Preview: {layer}.{table} ({limit} rows)\n")
         console.print(df.to_string())
@@ -359,10 +377,14 @@ def describe(table: str, layer: str | None = None) -> dict[str, Any]:
     conn = _get_connection()
     try:
         # Get row count
-        row_count = conn.execute(f"SELECT COUNT(*) FROM read_parquet('{path}')").fetchone()[0]
+        row_count = conn.execute(
+            f"SELECT COUNT(*) FROM read_parquet('{path}')"
+        ).fetchone()[0]
 
         # Get schema
-        schema_info = conn.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}')").fetchall()
+        schema_info = conn.execute(
+            f"DESCRIBE SELECT * FROM read_parquet('{path}')"
+        ).fetchall()
         cols = [row[0] for row in schema_info]
 
         info = {
@@ -376,14 +398,16 @@ def describe(table: str, layer: str | None = None) -> dict[str, Any]:
         }
 
         # Print panel
-        console.print(Panel(
-            f"""[bold]Table:[/bold] {layer}.{table}
+        console.print(
+            Panel(
+                f"""[bold]Table:[/bold] {layer}.{table}
 [bold]Rows:[/bold] {row_count:,}
-[bold]Columns:[/bold] {len(cols)} ({', '.join(cols[:5])}{'...' if len(cols) > 5 else ''})
+[bold]Columns:[/bold] {len(cols)} ({", ".join(cols[:5])}{"..." if len(cols) > 5 else ""})
 [bold]Path:[/bold] {path}""",
-            title=f"📊 {layer}.{table}",
-            border_style="cyan",
-        ))
+                title=f"📊 {layer}.{table}",
+                border_style="cyan",
+            )
+        )
 
         return info
 

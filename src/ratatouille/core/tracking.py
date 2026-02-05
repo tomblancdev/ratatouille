@@ -26,7 +26,7 @@ def get_registry_table() -> str:
 
 def init_registry():
     """Initialize the file registry table if it doesn't exist."""
-    from ratatouille.core.iceberg import get_catalog, ensure_namespace
+    from ratatouille.core.iceberg import ensure_namespace, get_catalog
 
     catalog = get_catalog()
     table_name = get_registry_table()
@@ -42,16 +42,19 @@ def init_registry():
         pass
 
     # Create empty registry table
-    df = pd.DataFrame({
-        "file_path": pd.Series(dtype="str"),
-        "file_hash": pd.Series(dtype="str"),
-        "target_table": pd.Series(dtype="str"),
-        "rows_ingested": pd.Series(dtype="int64"),
-        "ingested_at": pd.Series(dtype="datetime64[us]"),
-        "status": pd.Series(dtype="str"),  # "success", "failed", "skipped"
-    })
+    df = pd.DataFrame(
+        {
+            "file_path": pd.Series(dtype="str"),
+            "file_hash": pd.Series(dtype="str"),
+            "target_table": pd.Series(dtype="str"),
+            "rows_ingested": pd.Series(dtype="int64"),
+            "ingested_at": pd.Series(dtype="datetime64[us]"),
+            "status": pd.Series(dtype="str"),  # "success", "failed", "skipped"
+        }
+    )
 
     from ratatouille.core.iceberg import create_table
+
     create_table(table_name, df)
     print("📋 Created file registry table")
 
@@ -78,8 +81,7 @@ def is_file_ingested(file_path: str, file_hash: str | None = None) -> bool:
 
     # Check by path
     matches = registry[
-        (registry["file_path"] == file_path) &
-        (registry["status"] == "success")
+        (registry["file_path"] == file_path) & (registry["status"] == "success")
     ]
 
     if file_hash and not matches.empty:
@@ -109,14 +111,18 @@ def mark_file_ingested(
 
     init_registry()  # Ensure registry exists
 
-    record = pd.DataFrame([{
-        "file_path": file_path,
-        "file_hash": file_hash,
-        "target_table": target_table,
-        "rows_ingested": rows_ingested,
-        "ingested_at": datetime.utcnow(),
-        "status": status,
-    }])
+    record = pd.DataFrame(
+        [
+            {
+                "file_path": file_path,
+                "file_hash": file_hash,
+                "target_table": target_table,
+                "rows_ingested": rows_ingested,
+                "ingested_at": datetime.utcnow(),
+                "status": status,
+            }
+        ]
+    )
 
     try:
         append(get_registry_table(), record)

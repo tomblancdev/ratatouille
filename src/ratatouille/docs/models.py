@@ -30,7 +30,7 @@ class OwnerConfig(BaseModel):
     slack: str | None = Field(default=None, description="Slack channel for alerts")
 
     @classmethod
-    def from_string_or_dict(cls, value: str | dict | None) -> "OwnerConfig | None":
+    def from_string_or_dict(cls, value: str | dict | None) -> OwnerConfig | None:
         """Parse owner from string (email) or dict."""
         if value is None:
             return None
@@ -57,7 +57,9 @@ class BusinessRule(BaseModel):
 
     name: str = Field(description="Rule identifier (e.g., 'positive_quantities')")
     description: str = Field(description="Human-readable explanation")
-    sql: str | None = Field(default=None, description="SQL expression implementing the rule")
+    sql: str | None = Field(
+        default=None, description="SQL expression implementing the rule"
+    )
     source: Literal["config", "sql", "test"] = Field(
         default="config", description="Where this rule was defined"
     )
@@ -143,12 +145,16 @@ class EnhancedColumnConfig(BaseModel):
         description="Column tests: ['not_null', 'unique', {'accepted_values': [...]}]",
     )
     # New documentation fields
-    pii: bool | None = Field(default=None, description="Whether this column contains PII")
+    pii: bool | None = Field(
+        default=None, description="Whether this column contains PII"
+    )
     pii_type: str | None = Field(
         default=None,
         description="PII classification (e.g., 'email', 'customer_id', 'ssn')",
     )
-    example: str | None = Field(default=None, description="Example value for documentation")
+    example: str | None = Field(
+        default=None, description="Example value for documentation"
+    )
 
     def is_pii(self) -> bool:
         """Check if column is marked as PII."""
@@ -249,14 +255,14 @@ class EnhancedPipelineConfig(BaseModel):
         return v
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "EnhancedPipelineConfig":
+    def from_yaml(cls, path: Path | str) -> EnhancedPipelineConfig:
         """Load configuration from a YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f) or {}
         return cls(**data)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "EnhancedPipelineConfig":
+    def from_dict(cls, data: dict) -> EnhancedPipelineConfig:
         """Create from a dictionary."""
         return cls(**data)
 

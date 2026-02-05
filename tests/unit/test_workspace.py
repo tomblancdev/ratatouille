@@ -1,13 +1,10 @@
 """🧪 Tests for Workspace management."""
 
 import pytest
-import tempfile
-from pathlib import Path
 
 from ratatouille.workspace.config import (
-    WorkspaceConfig,
     IsolationConfig,
-    ResourcesConfig,
+    WorkspaceConfig,
 )
 from ratatouille.workspace.manager import Workspace
 

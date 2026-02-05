@@ -11,19 +11,18 @@ Handles:
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
 if TYPE_CHECKING:
-    from ratatouille.engine.duckdb import DuckDBEngine
     from ratatouille.workspace.manager import Workspace
 
+from .incremental import WatermarkTracker, compute_watermark
 from .loader import LoadedPipeline
 from .parser import SQLParser
-from .incremental import WatermarkTracker, compute_watermark
 
 
 @dataclass
@@ -63,7 +62,9 @@ class PipelineResult:
             "rows_written": self.rows_written,
             "is_incremental": self.is_incremental,
             "watermark_column": self.watermark_column,
-            "watermark_value": str(self.watermark_value) if self.watermark_value else None,
+            "watermark_value": str(self.watermark_value)
+            if self.watermark_value
+            else None,
             "error": self.error,
             "output_path": self.output_path,
         }
@@ -80,7 +81,7 @@ class PipelineExecutor:
         results = executor.run_all()
     """
 
-    def __init__(self, workspace: "Workspace"):
+    def __init__(self, workspace: Workspace):
         self.workspace = workspace
         self.engine = workspace.get_engine()
         self.parser = SQLParser(workspace)
@@ -150,6 +151,7 @@ class PipelineExecutor:
             watermarks = self.watermarks.get_all(pipeline.name)
             # Detect watermark column from SQL
             from .incremental import detect_watermark_column
+
             watermark_column = detect_watermark_column(parsed.raw_sql)
 
         # Compile SQL
@@ -163,7 +165,7 @@ class PipelineExecutor:
         if is_incremental:
             print(f"   Mode: incremental (watermark: {watermarks})")
         else:
-            print(f"   Mode: full refresh")
+            print("   Mode: full refresh")
 
         # Execute query
         df = self.engine.query(sql)
@@ -171,7 +173,7 @@ class PipelineExecutor:
         print(f"   Read: {rows_read} rows")
 
         if df.empty:
-            print(f"   ⏭️ No new data")
+            print("   ⏭️ No new data")
             return {
                 "rows_read": 0,
                 "rows_written": 0,
@@ -319,7 +321,9 @@ class PipelineExecutor:
             results.append(result)
 
             if result.success:
-                print(f"   ✅ {result.name}: {result.rows_written} rows in {result.duration_ms}ms")
+                print(
+                    f"   ✅ {result.name}: {result.rows_written} rows in {result.duration_ms}ms"
+                )
             else:
                 print(f"   ❌ {result.name}: {result.error}")
 
@@ -329,6 +333,8 @@ class PipelineExecutor:
         total_time = sum(r.duration_ms for r in results)
 
         print()
-        print(f"📊 Summary: {success_count}/{len(results)} succeeded, {total_rows} rows, {total_time}ms")
+        print(
+            f"📊 Summary: {success_count}/{len(results)} succeeded, {total_rows} rows, {total_time}ms"
+        )
 
         return results

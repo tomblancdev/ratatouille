@@ -100,7 +100,6 @@ def _create_asset_check(
     - severity=error → blocking=True (blocks downstream assets)
     - severity=warn → blocking=False (warning only)
     """
-    from .models import DiscoveredPipeline, DiscoveredTest
 
     # Build asset key
     asset_key = AssetKey([workspace_name, pipeline.layer, pipeline.name])

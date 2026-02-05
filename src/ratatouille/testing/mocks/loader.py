@@ -86,7 +86,7 @@ def _load_yaml(
             return
 
         # Write to temp file and use DuckDB's native JSON reader
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(rows, f)
             temp_path = f.name
 
@@ -118,7 +118,9 @@ def _load_yaml(
         tables_created.append(name)
 
     else:
-        raise ValueError(f"Invalid YAML format in {file_path}: expected 'table' and 'rows' keys")
+        raise ValueError(
+            f"Invalid YAML format in {file_path}: expected 'table' and 'rows' keys"
+        )
 
     return tables_created
 
@@ -161,8 +163,12 @@ def _load_json_native(
     elif isinstance(data, dict):
         if "rows" in data:
             # Extract rows and load via temp file
-            name = table_name or _normalize_table_name(data.get("table", file_path.stem))
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            name = table_name or _normalize_table_name(
+                data.get("table", file_path.stem)
+            )
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 json.dump(data["rows"], f)
                 temp_path = f.name
             try:
@@ -177,7 +183,9 @@ def _load_json_native(
         elif "tables" in data:
             for table_def in data["tables"]:
                 name = _normalize_table_name(table_def["table"])
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".json", delete=False
+                ) as f:
                     json.dump(table_def["rows"], f)
                     temp_path = f.name
                 try:
@@ -223,13 +231,17 @@ def _load_excel(
     """Load Excel file - requires pandas bridge (no native DuckDB support)."""
     try:
         import pandas as pd
-    except ImportError:
-        raise ImportError("pandas is required for Excel support: pip install pandas openpyxl")
+    except ImportError as err:
+        raise ImportError(
+            "pandas is required for Excel support: pip install pandas openpyxl"
+        ) from err
 
     try:
         import openpyxl  # noqa: F401
-    except ImportError:
-        raise ImportError("openpyxl is required for Excel support: pip install openpyxl")
+    except ImportError as err:
+        raise ImportError(
+            "openpyxl is required for Excel support: pip install openpyxl"
+        ) from err
 
     tables_created = []
     xlsx = pd.ExcelFile(file_path)
@@ -241,7 +253,9 @@ def _load_excel(
             raise ValueError(f"Sheet '{sheet_name}' not found in {file_path}")
 
         df = xlsx.parse(sheet_name)
-        name = table_name if (table_name and sheet) else _normalize_table_name(sheet_name)
+        name = (
+            table_name if (table_name and sheet) else _normalize_table_name(sheet_name)
+        )
 
         # Register pandas DataFrame and create table
         conn.register("_temp_excel", df)
@@ -299,7 +313,7 @@ def _load_generator(
     if hasattr(result, "to_dict"):  # DataFrame-like
         # Convert to records and use JSON via temp file
         records = result.to_dict(orient="records")
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(records, f)
             temp_path = f.name
         try:
@@ -311,7 +325,7 @@ def _load_generator(
             Path(temp_path).unlink(missing_ok=True)
     elif isinstance(result, list):
         # List of dicts via temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(result, f)
             temp_path = f.name
         try:

@@ -17,23 +17,24 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Generator
 
 from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 
 from .models import EnhancedPipelineConfig, load_enhanced_config
 
 
-class Severity(str, Enum):
+class Severity(Enum):
     """Validation rule severity."""
 
     ERROR = "error"
     WARN = "warn"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass
@@ -182,7 +183,9 @@ class CompletenessValidator:
 
         return results
 
-    def validate_pipeline(self, pipeline: str, strict: bool = False) -> ValidationResult:
+    def validate_pipeline(
+        self, pipeline: str, strict: bool = False
+    ) -> ValidationResult:
         """Validate a specific pipeline.
 
         Args:
@@ -353,7 +356,9 @@ class CompletenessValidator:
     ) -> str | None:
         """Check that freshness SLA is configured."""
         # Check if using default values
-        if config.freshness.warn_after == {"hours": 24} and config.freshness.error_after == {"hours": 48}:
+        if config.freshness.warn_after == {
+            "hours": 24
+        } and config.freshness.error_after == {"hours": 48}:
             return "Using default freshness SLA (consider setting explicit values)"
         return None
 
@@ -400,7 +405,9 @@ class CompletenessValidator:
         self.console.print()
 
         if total_errors == 0 and total_warnings == 0:
-            self.console.print("[bold green]✅ All pipelines pass validation![/bold green]")
+            self.console.print(
+                "[bold green]✅ All pipelines pass validation![/bold green]"
+            )
         else:
             parts = [f"[bold]{len(results)}[/bold] pipelines"]
             if total_errors:
@@ -411,7 +418,9 @@ class CompletenessValidator:
 
             if total_errors > 0:
                 self.console.print()
-                self.console.print("[bold red]Validation failed. Fix errors before proceeding.[/bold red]")
+                self.console.print(
+                    "[bold red]Validation failed. Fix errors before proceeding.[/bold red]"
+                )
 
         self.console.print()
 
@@ -427,13 +436,10 @@ class CompletenessValidator:
         # Header
         if result.passed and not result.warnings:
             icon = "✅"
-            color = "green"
         elif result.passed:
             icon = "⚠️"
-            color = "yellow"
         else:
             icon = "❌"
-            color = "red"
 
         self.console.print(f"[bold]{icon} {result.pipeline}[/bold]")
 
@@ -442,7 +448,9 @@ class CompletenessValidator:
             if issue.severity == Severity.ERROR:
                 self.console.print(f"  [red]❌ {issue.rule}:[/red] {issue.message}")
             else:
-                self.console.print(f"  [yellow]⚠️ {issue.rule}:[/yellow] {issue.message}")
+                self.console.print(
+                    f"  [yellow]⚠️ {issue.rule}:[/yellow] {issue.message}"
+                )
 
         if result.passed and not result.warnings:
             self.console.print("  [green]All checks passed[/green]")

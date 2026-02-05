@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from ratatouille.workspace.manager import Workspace
 
-from .parser import SQLParser, ParsedPipeline
 from .config import PipelineConfig, load_pipeline_config
+from .parser import ParsedPipeline, SQLParser
 
 
 @dataclass
@@ -67,7 +67,7 @@ class LoadedPipeline:
 
 def load_pipeline(
     path: Path | str,
-    workspace: "Workspace | None" = None,
+    workspace: Workspace | None = None,
 ) -> LoadedPipeline:
     """Load a single pipeline from a file.
 
@@ -97,7 +97,7 @@ def load_pipeline(
 def _load_sql_pipeline(
     path: Path,
     layer: str,
-    workspace: "Workspace | None",
+    workspace: Workspace | None,
 ) -> LoadedPipeline:
     """Load a SQL pipeline."""
     parser = SQLParser(workspace)
@@ -163,7 +163,7 @@ def _detect_layer(path: Path) -> Literal["bronze", "silver", "gold"]:
 
 
 def discover_pipelines(
-    workspace: "Workspace | Path",
+    workspace: Workspace | Path,
     layer: str | None = None,
 ) -> list[LoadedPipeline]:
     """Discover all pipelines in a workspace.
@@ -197,8 +197,8 @@ def discover_pipelines(
     # Layers to scan
     layers = [layer] if layer else ["bronze", "silver", "gold"]
 
-    for l in layers:
-        layer_dir = pipelines_dir / l
+    for lyr in layers:
+        layer_dir = pipelines_dir / lyr
         if not layer_dir.exists():
             continue
 
@@ -248,7 +248,7 @@ def topological_sort(pipelines: list[LoadedPipeline]) -> list[LoadedPipeline]:
     dag = build_dag(pipelines)
 
     # Kahn's algorithm for topological sort
-    in_degree = {name: 0 for name in dag}
+    in_degree = dict.fromkeys(dag, 0)
     for deps in dag.values():
         for dep in deps:
             if dep in in_degree:

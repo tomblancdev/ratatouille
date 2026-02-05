@@ -7,7 +7,6 @@ Functions for exploring files and paths in the workspace storage.
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterator
 
 import boto3
 from botocore.client import Config
@@ -21,6 +20,7 @@ console = Console()
 @dataclass
 class S3Object:
     """Represents an object in S3."""
+
     key: str
     size: int
     last_modified: datetime
@@ -28,7 +28,11 @@ class S3Object:
 
     @property
     def name(self) -> str:
-        return self.key.split("/")[-1] if not self.is_folder else self.key.rstrip("/").split("/")[-1]
+        return (
+            self.key.split("/")[-1]
+            if not self.is_folder
+            else self.key.rstrip("/").split("/")[-1]
+        )
 
     @property
     def size_human(self) -> str:
@@ -209,7 +213,11 @@ def ls(
             if show_size:
                 row.append(obj.size_human)
             if show_date:
-                row.append(obj.last_modified.strftime("%Y-%m-%d %H:%M") if not obj.is_folder else "")
+                row.append(
+                    obj.last_modified.strftime("%Y-%m-%d %H:%M")
+                    if not obj.is_folder
+                    else ""
+                )
             table.add_row(*row)
 
         console.print(table)
@@ -253,6 +261,7 @@ def ls_recursive(
                 key = obj["Key"]
                 if pattern != "*":
                     import fnmatch
+
                     if not fnmatch.fnmatch(key.split("/")[-1], pattern):
                         continue
 

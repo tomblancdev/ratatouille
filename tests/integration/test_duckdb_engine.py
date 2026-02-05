@@ -9,14 +9,15 @@ Set environment variables:
 """
 
 import os
-import pytest
-import pandas as pd
 from datetime import datetime
+
+import pandas as pd
+import pytest
 
 # Skip all tests if services not available
 pytestmark = pytest.mark.skipif(
     not os.getenv("S3_ENDPOINT"),
-    reason="S3_ENDPOINT not set - integration services not available"
+    reason="S3_ENDPOINT not set - integration services not available",
 )
 
 
@@ -53,12 +54,14 @@ class TestDuckDBEngine:
     def test_write_and_read_parquet(self, engine, tmp_path):
         """Test writing and reading Parquet files."""
         # Create test data
-        df = pd.DataFrame({
-            "id": range(100),
-            "name": [f"item_{i}" for i in range(100)],
-            "value": [i * 1.5 for i in range(100)],
-            "date": [datetime(2024, 1, 1)] * 100,
-        })
+        df = pd.DataFrame(
+            {
+                "id": range(100),
+                "name": [f"item_{i}" for i in range(100)],
+                "value": [i * 1.5 for i in range(100)],
+                "date": [datetime(2024, 1, 1)] * 100,
+            }
+        )
 
         # Write to Parquet
         parquet_path = tmp_path / "test_data.parquet"
@@ -74,11 +77,13 @@ class TestDuckDBEngine:
 
     def test_write_partitioned(self, engine, tmp_path):
         """Test writing partitioned Parquet files."""
-        df = pd.DataFrame({
-            "id": range(10),
-            "category": ["A", "B"] * 5,
-            "value": range(10),
-        })
+        df = pd.DataFrame(
+            {
+                "id": range(10),
+                "category": ["A", "B"] * 5,
+                "value": range(10),
+            }
+        )
 
         output_dir = tmp_path / "partitioned"
         engine.write_parquet(df, str(output_dir), partition_by=["category"])
@@ -95,7 +100,9 @@ class TestDuckDBResourceLimits:
         engine = test_workspace.get_engine()
 
         # Query DuckDB settings
-        settings = engine.query("SELECT * FROM duckdb_settings() WHERE name = 'memory_limit'")
+        settings = engine.query(
+            "SELECT * FROM duckdb_settings() WHERE name = 'memory_limit'"
+        )
 
         # Should have some memory limit set
         assert len(settings) == 1
@@ -105,6 +112,8 @@ class TestDuckDBResourceLimits:
         """Test that thread count is configured."""
         engine = test_workspace.get_engine()
 
-        settings = engine.query("SELECT * FROM duckdb_settings() WHERE name = 'threads'")
+        settings = engine.query(
+            "SELECT * FROM duckdb_settings() WHERE name = 'threads'"
+        )
 
         assert len(settings) == 1

@@ -3,13 +3,14 @@
 Provides a clean interface for running pipeline code with mock data.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 
-from .models import TestOutput, TestStatus, TestSeverity
+from .models import TestOutput, TestSeverity, TestStatus
 
 
 @dataclass
@@ -69,11 +70,13 @@ class TestContext:
         Records the call and returns the mock response if configured.
         """
         key = f"{method.upper()} {endpoint}"
-        self._api_calls.append({
-            "method": method,
-            "endpoint": endpoint,
-            "kwargs": kwargs,
-        })
+        self._api_calls.append(
+            {
+                "method": method,
+                "endpoint": endpoint,
+                "kwargs": kwargs,
+            }
+        )
 
         if key in self._api_responses:
             response = self._api_responses[key]
@@ -139,7 +142,9 @@ def use_mock(mock_path: str) -> Callable[[Callable], Callable]:
         def test_api_ingestion(context: TestContext):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         func._mock_path = mock_path  # type: ignore
         return func
+
     return decorator

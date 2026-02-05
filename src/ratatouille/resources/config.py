@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -69,14 +68,14 @@ class ResourceConfig(BaseModel):
     containers: ContainerLimits = Field(default_factory=ContainerLimits)
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "ResourceConfig":
+    def from_yaml(cls, path: Path | str) -> ResourceConfig:
         """Load configuration from a YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f)
         return cls(**data.get("resources", data))
 
     @classmethod
-    def from_profile(cls, profile: str) -> "ResourceConfig":
+    def from_profile(cls, profile: str) -> ResourceConfig:
         """Load a named profile (tiny, small, medium, large)."""
         from .profiles import get_profile_path
 
@@ -89,7 +88,9 @@ class ResourceConfig(BaseModel):
             "memory_limit": self.duckdb.memory_limit,
             "threads": str(self.duckdb.threads),
             "temp_directory": f"'{self.duckdb.temp_directory}'",
-            "preserve_insertion_order": str(self.duckdb.preserve_insertion_order).lower(),
+            "preserve_insertion_order": str(
+                self.duckdb.preserve_insertion_order
+            ).lower(),
         }
 
 
@@ -116,13 +117,13 @@ class Settings(BaseSettings):
         case_sensitive = False
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings from environment."""
     return Settings()
 
 
-@lru_cache()
+@lru_cache
 def get_resource_config() -> ResourceConfig:
     """Get resource configuration based on RAT_PROFILE env var."""
     settings = get_settings()

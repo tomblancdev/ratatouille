@@ -56,7 +56,9 @@ def init_workspace(name: str, path: Path | None = None) -> None:
     target = path or Path.cwd() / name
 
     if target.exists() and any(target.iterdir()):
-        console.print(f"[red]Error:[/red] Directory '{target}' already exists and is not empty")
+        console.print(
+            f"[red]Error:[/red] Directory '{target}' already exists and is not empty"
+        )
         sys.exit(1)
 
     console.print(f"🐀 Creating workspace [cyan]{name}[/cyan]...")
@@ -132,7 +134,9 @@ def generate_docs(
         console.print(f"[red]Error:[/red] Workspace not found: {workspace_path}")
         sys.exit(1)
 
-    console.print(f"📚 Generating documentation for [cyan]{workspace_path.name}[/cyan]...")
+    console.print(
+        f"📚 Generating documentation for [cyan]{workspace_path.name}[/cyan]..."
+    )
     console.print()
 
     generator = DocumentationGenerator(workspace_path, console)
@@ -156,16 +160,22 @@ def generate_docs(
         else:
             created = len(result.files_created)
             updated = len(result.files_updated)
-            console.print(f"[green]✅ {result.pipeline}[/green] ({created} created, {updated} updated)")
+            console.print(
+                f"[green]✅ {result.pipeline}[/green] ({created} created, {updated} updated)"
+            )
 
     console.print()
-    console.print(f"[bold]📊 Summary:[/bold] {len(results)} pipelines | {total_created} created | {total_updated} updated")
+    console.print(
+        f"[bold]📊 Summary:[/bold] {len(results)} pipelines | {total_created} created | {total_updated} updated"
+    )
 
     if errors:
         console.print(f"[bold red]{len(errors)} pipeline(s) had errors[/bold red]")
         sys.exit(1)
     else:
-        console.print("[bold green]Documentation generated successfully! 🎉[/bold green]")
+        console.print(
+            "[bold green]Documentation generated successfully! 🎉[/bold green]"
+        )
 
 
 def check_docs(
@@ -332,72 +342,73 @@ Examples:
     # test command
     test_parser = subparsers.add_parser("test", help="Run pipeline tests")
     test_parser.add_argument(
-        "--workspace", "-w",
-        help="Workspace name or path (default: current workspace)"
+        "--workspace", "-w", help="Workspace name or path (default: current workspace)"
     )
     test_parser.add_argument(
-        "--pipeline", "-p",
-        help="Filter by pipeline name (e.g., 'sales')"
+        "--pipeline", "-p", help="Filter by pipeline name (e.g., 'sales')"
     )
     test_parser.add_argument(
-        "--layer", "-l",
-        choices=["bronze", "silver", "gold"],
-        help="Filter by layer"
+        "--layer", "-l", choices=["bronze", "silver", "gold"], help="Filter by layer"
     )
     test_parser.add_argument(
-        "--type", "-t",
+        "--type",
+        "-t",
         action="append",
         dest="test_type",
         choices=["quality", "unit"],
-        help="Filter by test type (can specify multiple)"
+        help="Filter by test type (can specify multiple)",
     )
     test_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         choices=["console", "json"],
         default="console",
-        help="Output format (default: console)"
+        help="Output format (default: console)",
     )
     test_parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
-        help="Show verbose output with data samples"
+        help="Show verbose output with data samples",
     )
     test_parser.add_argument(
-        "--fail-fast", "-x",
-        action="store_true",
-        help="Stop on first failure"
+        "--fail-fast", "-x", action="store_true", help="Stop on first failure"
     )
 
     # docs command group
-    docs_parser = subparsers.add_parser("docs", help="Generate and validate documentation")
-    docs_subparsers = docs_parser.add_subparsers(dest="docs_command", help="Documentation commands")
+    docs_parser = subparsers.add_parser(
+        "docs", help="Generate and validate documentation"
+    )
+    docs_subparsers = docs_parser.add_subparsers(
+        dest="docs_command", help="Documentation commands"
+    )
 
     # docs generate
-    docs_gen_parser = docs_subparsers.add_parser("generate", help="Generate documentation")
-    docs_gen_parser.add_argument(
-        "--workspace", "-w",
-        help="Workspace name or path (default: current workspace)"
+    docs_gen_parser = docs_subparsers.add_parser(
+        "generate", help="Generate documentation"
     )
     docs_gen_parser.add_argument(
-        "--pipeline", "-p",
-        help="Generate for specific pipeline (e.g., 'silver/sales')"
+        "--workspace", "-w", help="Workspace name or path (default: current workspace)"
+    )
+    docs_gen_parser.add_argument(
+        "--pipeline", "-p", help="Generate for specific pipeline (e.g., 'silver/sales')"
     )
 
     # docs check
-    docs_check_parser = docs_subparsers.add_parser("check", help="Validate documentation completeness")
-    docs_check_parser.add_argument(
-        "--workspace", "-w",
-        help="Workspace name or path (default: current workspace)"
+    docs_check_parser = docs_subparsers.add_parser(
+        "check", help="Validate documentation completeness"
     )
     docs_check_parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="Treat warnings as errors"
+        "--workspace", "-w", help="Workspace name or path (default: current workspace)"
     )
     docs_check_parser.add_argument(
-        "--verbose", "-v",
+        "--strict", action="store_true", help="Treat warnings as errors"
+    )
+    docs_check_parser.add_argument(
+        "--verbose",
+        "-v",
         action="store_true",
-        help="Show all pipelines, not just failures"
+        help="Show all pipelines, not just failures",
     )
 
     # version

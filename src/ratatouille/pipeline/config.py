@@ -12,13 +12,13 @@ from __future__ import annotations
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
 
 
-class ColumnType(str, Enum):
+class ColumnType(Enum):
     """Supported column types."""
 
     STRING = "string"
@@ -31,6 +31,9 @@ class ColumnType(str, Enum):
     DATE = "date"
     DATETIME = "datetime"
     TIMESTAMP = "timestamp"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class TestConfig(BaseModel):
@@ -130,14 +133,14 @@ class PipelineConfig(BaseModel):
     )
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "PipelineConfig":
+    def from_yaml(cls, path: Path | str) -> PipelineConfig:
         """Load configuration from a YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f) or {}
         return cls(**data)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "PipelineConfig":
+    def from_dict(cls, data: dict) -> PipelineConfig:
         """Create from a dictionary."""
         return cls(**data)
 

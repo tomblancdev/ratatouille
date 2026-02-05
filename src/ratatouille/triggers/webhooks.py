@@ -7,12 +7,10 @@ Creates webhook endpoints that can be called by:
 - Manual triggers via curl/API
 """
 
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Callable
 import hashlib
 import hmac
-import os
+from dataclasses import dataclass
+from datetime import datetime
 
 from dagster import RunRequest
 
@@ -155,14 +153,19 @@ def create_webhook_endpoint(config: WebhookConfig) -> dict:
         app.add_api_route(endpoint["path"], endpoint["handler"], methods=endpoint["methods"])
     """
 
-    async def webhook_handler(request_body: dict, x_webhook_signature: str | None = None):
+    async def webhook_handler(
+        request_body: dict, x_webhook_signature: str | None = None
+    ):
         """Handle incoming webhook."""
         # Verify signature if secret is configured
         if config.secret and x_webhook_signature:
             # Note: In real implementation, you'd get raw bytes from request
             import json
+
             payload_bytes = json.dumps(request_body).encode()
-            if not verify_webhook_signature(payload_bytes, x_webhook_signature, config.secret):
+            if not verify_webhook_signature(
+                payload_bytes, x_webhook_signature, config.secret
+            ):
                 return {"error": "Invalid signature"}, 401
 
         # Parse payload (try MinIO format first, then generic)

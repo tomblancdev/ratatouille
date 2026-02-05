@@ -34,7 +34,9 @@ class LineageInfo:
     pipeline: str
     layer: str | None = None
     upstream: list[str] = field(default_factory=list)
-    downstream: list[str] = field(default_factory=list)  # Populated from full workspace scan
+    downstream: list[str] = field(
+        default_factory=list
+    )  # Populated from full workspace scan
 
     def to_mermaid(self, title: str | None = None) -> str:
         """Generate a Mermaid flowchart of the lineage.
@@ -94,7 +96,9 @@ class LineageParser:
     def __init__(self) -> None:
         self._lineage_cache: dict[str, LineageInfo] = {}
 
-    def parse_file(self, path: Path | str, pipeline_name: str | None = None) -> LineageInfo:
+    def parse_file(
+        self, path: Path | str, pipeline_name: str | None = None
+    ) -> LineageInfo:
         """Parse a SQL file and extract lineage.
 
         Args:
@@ -253,7 +257,7 @@ def generate_workspace_lineage_diagram(workspace_path: Path) -> str:
 
     # Group by layer
     layers = {"bronze": [], "silver": [], "gold": []}
-    for name, lineage in lineage_map.items():
+    for _name, lineage in lineage_map.items():
         layer = lineage.layer or "other"
         if layer in layers:
             layers[layer].append(lineage)

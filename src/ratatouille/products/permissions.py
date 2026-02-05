@@ -10,12 +10,10 @@ Provides high-level permission management:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from functools import lru_cache
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from ratatouille.workspace.manager import Workspace
+    pass
 
 from .registry import AccessRule, ProductRegistry
 
@@ -162,7 +160,8 @@ class PermissionManager:
                 effective_level=best_rule.access_level,
                 matching_rule=best_rule.workspace_pattern,
                 reason=f"Matched rule: {best_rule.workspace_pattern} ({best_rule.access_level})"
-                if granted else f"Insufficient access: have {best_rule.access_level}, need {level}",
+                if granted
+                else f"Insufficient access: have {best_rule.access_level}, need {level}",
             )
         else:
             result = PermissionCheck(
@@ -247,10 +246,7 @@ class PermissionManager:
 
     def _invalidate_cache(self, product_name: str) -> None:
         """Invalidate cache entries for a product."""
-        keys_to_remove = [
-            key for key in self._check_cache
-            if key[1] == product_name
-        ]
+        keys_to_remove = [key for key in self._check_cache if key[1] == product_name]
         for key in keys_to_remove:
             del self._check_cache[key]
 
@@ -269,11 +265,14 @@ def require_permission(
             # Only runs if workspace has write access to product
             ...
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             # Extract workspace and product_name
             workspace = kwargs.get("workspace") or (args[0] if args else None)
-            product_name = kwargs.get("product_name") or (args[1] if len(args) > 1 else None)
+            product_name = kwargs.get("product_name") or (
+                args[1] if len(args) > 1 else None
+            )
 
             if workspace is None or product_name is None:
                 raise ValueError(
@@ -294,7 +293,9 @@ def require_permission(
                 )
 
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 

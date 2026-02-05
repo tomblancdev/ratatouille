@@ -23,12 +23,16 @@ HAVING COUNT(*) > 1
 import os
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import duckdb
 
-from ..models import DiscoveredPipeline, DiscoveredTest, TestOutput, TestStatus
 from ..mocks.loader import MockLoader
+from ..models import DiscoveredPipeline, DiscoveredTest, TestOutput, TestStatus
 from .base import BaseTestExecutor
+
+if TYPE_CHECKING:
+    from .base import ExecutionTimer
 
 
 class QualityTestExecutor(BaseTestExecutor):
@@ -40,7 +44,9 @@ class QualityTestExecutor(BaseTestExecutor):
         workspace_name: str | None = None,
     ) -> None:
         super().__init__(workspace_path)
-        self.workspace_name = workspace_name or os.getenv("RATATOUILLE_WORKSPACE", "default")
+        self.workspace_name = workspace_name or os.getenv(
+            "RATATOUILLE_WORKSPACE", "default"
+        )
         self.mock_loader = MockLoader()
 
     def execute(
@@ -154,6 +160,7 @@ class QualityTestExecutor(BaseTestExecutor):
         data = None
         if row_count > 0:
             import pandas as pd  # Only for display
+
             data = pd.DataFrame(rows, columns=columns)
 
         return TestOutput(
@@ -168,7 +175,9 @@ class QualityTestExecutor(BaseTestExecutor):
             sql=test_sql,
             mocks_used=mocks_used,
             duration_ms=timer.duration_ms,
-            message=f"{row_count} violations found" if row_count > 0 else "No violations",
+            message=f"{row_count} violations found"
+            if row_count > 0
+            else "No violations",
         )
 
     def _execute_against_s3(
@@ -197,6 +206,7 @@ class QualityTestExecutor(BaseTestExecutor):
         data = None
         if row_count > 0:
             import pandas as pd
+
             data = pd.DataFrame(rows, columns=columns)
 
         return TestOutput(
@@ -210,7 +220,9 @@ class QualityTestExecutor(BaseTestExecutor):
             columns_checked=columns,
             sql=sql,
             duration_ms=timer.duration_ms,
-            message=f"{row_count} violations found" if row_count > 0 else "No violations",
+            message=f"{row_count} violations found"
+            if row_count > 0
+            else "No violations",
         )
 
     def _load_mocks(
@@ -326,7 +338,3 @@ class QualityTestExecutor(BaseTestExecutor):
         """)
 
         return conn
-
-
-# Import for type hint
-from .base import ExecutionTimer

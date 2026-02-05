@@ -23,21 +23,22 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 import yaml
 from dagster import (
-    AssetsDefinition,
-    AssetKey,
-    asset,
-    AssetIn,
-    Output,
     AssetExecutionContext,
+    AssetIn,
+    AssetKey,
+    AssetsDefinition,
+    Output,
+    asset,
 )
 
-from ratatouille.pipeline.parser import SQLParser, ParsedPipeline
+from ratatouille.pipeline.parser import SQLParser
 from ratatouille.triggers.factory import (
     TriggerBundle,
+)
+from ratatouille.triggers.factory import (
     discover_workspace_triggers as _discover_triggers,
 )
 
@@ -161,7 +162,9 @@ def _discover_sql_assets(
                 )
                 if asset_def:
                     assets.append(asset_def)
-                    print(f"   📦 Loaded SQL asset: {workspace_name}/{layer}/{sql_file.stem}")
+                    print(
+                        f"   📦 Loaded SQL asset: {workspace_name}/{layer}/{sql_file.stem}"
+                    )
             except Exception as e:
                 print(f"⚠️  Failed to load {sql_file}: {e}")
 
@@ -195,7 +198,9 @@ def _load_assets_from_file(
             assets.append(obj)
 
     if assets:
-        print(f"   📦 Loaded {len(assets)} Python assets from {workspace_name}/{file_path.name}")
+        print(
+            f"   📦 Loaded {len(assets)} Python assets from {workspace_name}/{file_path.name}"
+        )
 
     return assets
 
@@ -264,7 +269,6 @@ def _create_sql_asset(
     def sql_asset(context: AssetExecutionContext, **inputs):
         """Execute SQL pipeline and write to storage."""
         import duckdb
-        import pandas as pd
 
         # Compile SQL with current context
         sql = parser.compile(
@@ -333,9 +337,8 @@ def list_workspaces(workspaces_dir: str | Path = "/app/workspaces") -> list[str]
             pipelines_dir = workspace_dir / "pipelines"
             if pipelines_dir.exists():
                 # Check for any .py or .sql files
-                has_pipelines = (
-                    any(pipelines_dir.glob("*.py"))
-                    or any(pipelines_dir.glob("**/*.sql"))
+                has_pipelines = any(pipelines_dir.glob("*.py")) or any(
+                    pipelines_dir.glob("**/*.sql")
                 )
                 if has_pipelines:
                     workspaces.append(workspace_dir.name)

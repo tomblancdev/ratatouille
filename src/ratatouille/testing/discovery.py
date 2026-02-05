@@ -20,8 +20,8 @@ pipelines/
 """
 
 import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import yaml
 
@@ -196,7 +196,9 @@ def _discover_legacy_pipeline(file: Path, layer: str) -> DiscoveredPipeline | No
         mocks_path=tests_path / "mocks" if tests_path else None,
         quality_tests=quality_tests,
         unit_tests=unit_tests,
-        docs_path=folder / "docs" if folder.exists() and (folder / "docs").exists() else None,
+        docs_path=folder / "docs"
+        if folder.exists() and (folder / "docs").exists()
+        else None,
         readme_file=None,
     )
 
@@ -280,7 +282,9 @@ def _parse_sql_test(file: Path, test_type: str) -> DiscoveredTest | None:
         row_count = None
         if expect_count:
             try:
-                row_count = int(expect_count) if isinstance(expect_count, str) else expect_count
+                row_count = (
+                    int(expect_count) if isinstance(expect_count, str) else expect_count
+                )
             except (ValueError, TypeError):
                 pass
 
@@ -382,7 +386,9 @@ def _parse_python_test(file: Path) -> DiscoveredTest | None:
     )
 
 
-def discover_workspace_tests(workspace_path: Path) -> Iterator[tuple[DiscoveredPipeline, list[DiscoveredTest]]]:
+def discover_workspace_tests(
+    workspace_path: Path,
+) -> Iterator[tuple[DiscoveredPipeline, list[DiscoveredTest]]]:
     """Discover all tests across a workspace.
 
     Yields:

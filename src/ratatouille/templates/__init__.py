@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Template strings embedded for portability
 
-WORKSPACE_YAML = '''# 🐀 Ratatouille Workspace Configuration
+WORKSPACE_YAML = """# 🐀 Ratatouille Workspace Configuration
 
 name: {name}
 version: "1.0"
@@ -36,10 +36,10 @@ quality:
 freshness:
   default_warn_hours: 12
   default_error_hours: 24
-'''
+"""
 
 # DevContainer uses pre-built image
-DEVCONTAINER_JSON = '''{{
+DEVCONTAINER_JSON = """{{
   "name": "Ratatouille Workspace: {name}",
   "image": "ratatouille-workspace:latest",
   "workspaceFolder": "/workspace",
@@ -82,9 +82,9 @@ DEVCONTAINER_JSON = '''{{
 
   "remoteUser": "vscode"
 }}
-'''
+"""
 
-CLAUDE_MD = '''# 🐀 Ratatouille Workspace - Claude Guidelines
+CLAUDE_MD = """# 🐀 Ratatouille Workspace - Claude Guidelines
 
 ## ⛔ STRICT SECURITY RULES
 
@@ -120,9 +120,9 @@ SELECT device, COUNT(*) FROM events GROUP BY device;
 1. **Politely decline** - You cannot access data directly
 2. **Suggest alternatives** - Ask user to run query and share results
 3. **Help debug** - Work with schemas and user descriptions
-'''
+"""
 
-CLAUDE_SETTINGS = '''{{
+CLAUDE_SETTINGS = """{{
   "$schema": "https://claude.ai/claude-code/settings.schema.json",
   "permissions": {{
     "deny": [
@@ -147,9 +147,9 @@ CLAUDE_SETTINGS = '''{{
     ]
   }}
 }}
-'''
+"""
 
-GITIGNORE = '''# Data
+GITIGNORE = """# Data
 data/
 *.parquet
 *.csv
@@ -169,9 +169,9 @@ __pycache__/
 .idea/
 .vscode/*
 !.vscode/settings.json
-'''
+"""
 
-README_MD = '''# 🐀 {name}
+README_MD = """# 🐀 {name}
 
 A Ratatouille data workspace.
 
@@ -225,7 +225,7 @@ tools.ls("bronze/")       # Browse S3
 | Nessie | http://localhost:19120 |
 | Dagster | http://localhost:3030 |
 | Jupyter | http://localhost:8889 |
-'''
+"""
 
 EXAMPLE_BRONZE_PY = '''"""
 🐀 Bronze: Example Data Ingestion

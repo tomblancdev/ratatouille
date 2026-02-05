@@ -24,34 +24,32 @@ Or use the tools object:
     tools.tables()
 """
 
+from ratatouille.tools.catalog import (
+    columns,
+    count,
+    describe,
+    layers,
+    preview,
+    schema,
+    tables,
+)
 from ratatouille.tools.explorer import (
+    bucket_name,
+    find,
     ls,
     ls_recursive,
-    tree,
-    find,
     s3_path,
     s3_uri,
-    bucket_name,
+    tree,
 )
-
-from ratatouille.tools.catalog import (
-    tables,
-    schema,
-    columns,
-    preview,
-    count,
-    layers,
-    describe,
-)
-
 from ratatouille.tools.workspace import (
-    info,
-    workspaces,
-    products,
-    current_workspace,
-    switch_workspace,
-    env,
     connections,
+    current_workspace,
+    env,
+    info,
+    products,
+    switch_workspace,
+    workspaces,
 )
 
 __all__ = [

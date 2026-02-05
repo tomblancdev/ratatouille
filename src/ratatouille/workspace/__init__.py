@@ -7,8 +7,8 @@ Each workspace has:
 - Its own pipeline definitions
 """
 
-from .manager import Workspace, get_workspace, list_workspaces
 from .config import WorkspaceConfig
+from .manager import Workspace, get_workspace, list_workspaces
 
 __all__ = [
     "Workspace",

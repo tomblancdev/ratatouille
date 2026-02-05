@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Literal
 
@@ -62,14 +61,16 @@ def list_profiles() -> list[dict]:
     result = []
     for name, description in PROFILES.items():
         try:
-            path = get_profile_path(name)
+            get_profile_path(name)
             exists = True
         except FileNotFoundError:
             exists = False
 
-        result.append({
-            "name": name,
-            "description": description,
-            "available": exists,
-        })
+        result.append(
+            {
+                "name": name,
+                "description": description,
+                "available": exists,
+            }
+        )
     return result

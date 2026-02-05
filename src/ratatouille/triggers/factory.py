@@ -6,19 +6,16 @@ Parses pipeline YAML files and creates appropriate Dagster sensors/schedules.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
+from dagster import ScheduleDefinition, SensorDefinition
 
-from dagster import SensorDefinition, ScheduleDefinition
-
-from ratatouille.triggers.sensors import create_s3_sensor, S3SensorConfig
 from ratatouille.triggers.schedules import (
-    create_schedule,
-    create_freshness_schedule,
     ScheduleConfig,
-    resolve_cron,
+    create_freshness_schedule,
+    create_schedule,
 )
+from ratatouille.triggers.sensors import S3SensorConfig, create_s3_sensor
 
 
 @dataclass
@@ -81,9 +78,7 @@ def create_triggers_from_yaml(
         trigger_type = trigger.get("type", "").lower()
 
         if trigger_type == "s3_sensor":
-            sensor = _create_s3_trigger(
-                trigger, workspace, pipeline_name, target_asset
-            )
+            sensor = _create_s3_trigger(trigger, workspace, pipeline_name, target_asset)
             if sensor:
                 sensors.append(sensor)
 

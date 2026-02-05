@@ -29,25 +29,25 @@ Example Python Pipeline:
             rat.append("bronze.raw_sales", df)
 """
 
-from .parser import SQLParser, ParsedPipeline
-from .config import PipelineConfig, ColumnConfig, load_pipeline_config
-from .loader import (
-    LoadedPipeline,
-    load_pipeline,
-    discover_pipelines,
-    build_dag,
-    topological_sort,
+from .config import ColumnConfig, PipelineConfig, load_pipeline_config
+from .decorators import (
+    bronze_pipeline,
+    get_pipeline_meta,
+    gold_pipeline,
+    is_pipeline,
+    pipeline,
+    silver_pipeline,
 )
 from .executor import PipelineExecutor, PipelineResult
-from .incremental import WatermarkTracker, WatermarkState, compute_watermark
-from .decorators import (
-    pipeline,
-    is_pipeline,
-    get_pipeline_meta,
-    bronze_pipeline,
-    silver_pipeline,
-    gold_pipeline,
+from .incremental import WatermarkState, WatermarkTracker, compute_watermark
+from .loader import (
+    LoadedPipeline,
+    build_dag,
+    discover_pipelines,
+    load_pipeline,
+    topological_sort,
 )
+from .parser import ParsedPipeline, SQLParser
 
 __all__ = [
     # Parser

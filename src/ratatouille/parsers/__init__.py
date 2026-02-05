@@ -15,8 +15,10 @@ To add a built-in parser:
 3. Import and register it in PARSERS dict below
 """
 
-from typing import Callable, Protocol
+from collections.abc import Callable
 from io import BytesIO
+from typing import Protocol
+
 import pandas as pd
 
 
@@ -25,6 +27,7 @@ class Parser(Protocol):
 
     A parser takes file data and returns a DataFrame.
     """
+
     def __call__(self, data: BytesIO, filename: str) -> pd.DataFrame:
         """Parse file data into a DataFrame.
 

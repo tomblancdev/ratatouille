@@ -18,14 +18,14 @@ Usage:
 """
 
 from .generator import DocumentationGenerator
-from .validator import CompletenessValidator
 from .models import (
-    OwnerConfig,
     BusinessRule,
     DocumentationConfig,
     EnhancedColumnConfig,
     EnhancedPipelineConfig,
+    OwnerConfig,
 )
+from .validator import CompletenessValidator
 
 __all__ = [
     "DocumentationGenerator",

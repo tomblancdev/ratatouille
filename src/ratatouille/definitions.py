@@ -25,19 +25,21 @@ if str(project_root) not in sys.path:
 # Local dev: ./workspaces (relative to project root)
 WORKSPACES_DIR = os.environ.get(
     "RATATOUILLE_WORKSPACES_DIR",
-    "/app/workspaces" if Path("/app/workspaces").exists() else str(project_root / "workspaces"),
+    "/app/workspaces"
+    if Path("/app/workspaces").exists()
+    else str(project_root / "workspaces"),
 )
 
 print("🐀 Ratatouille loading...")
 print(f"   Workspaces dir: {WORKSPACES_DIR}")
 
-# Import discovery functions
-from ratatouille.discovery import (
+# Import discovery functions (must be after sys.path modification)
+from ratatouille.discovery import (  # noqa: E402
     discover_workspace_assets,
     discover_workspace_triggers,
     list_workspaces,
 )
-from ratatouille.testing.dagster import discover_asset_checks
+from ratatouille.testing.dagster import discover_asset_checks  # noqa: E402
 
 # Import built-in demo pipelines (if they exist)
 try:
@@ -102,5 +104,7 @@ defs = Definitions(
     jobs=all_jobs,
 )
 
-print(f"🐀 Ratatouille ready!")
-print(f"   Total: {len(all_assets)} assets, {len(asset_checks)} checks, {len(all_sensors)} sensors, {len(all_schedules)} schedules")
+print("🐀 Ratatouille ready!")
+print(
+    f"   Total: {len(all_assets)} assets, {len(asset_checks)} checks, {len(all_sensors)} sensors, {len(all_schedules)} schedules"
+)

@@ -11,11 +11,15 @@ Supports:
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from jinja2 import Environment, BaseLoader, TemplateSyntaxError, Undefined
+from jinja2 import BaseLoader, Environment, TemplateSyntaxError, Undefined
+
+if TYPE_CHECKING:
+    from ratatouille.workspace.manager import Workspace
 
 
 @dataclass
@@ -62,7 +66,7 @@ class SQLParser:
     # Regex for metadata comments like -- @name: silver_sales
     METADATA_PATTERN = re.compile(r"^--\s*@(\w+):\s*(.+)$", re.MULTILINE)
 
-    def __init__(self, workspace: "Workspace | None" = None):
+    def __init__(self, workspace: Workspace | None = None):
         self.workspace = workspace
         self._dependencies: list[str] = []
         self._env = self._create_jinja_env()
@@ -189,7 +193,7 @@ class SQLParser:
             template = self._env.from_string(parsed.raw_sql)
             sql = template.render(**context)
         except TemplateSyntaxError as e:
-            raise ValueError(f"Template syntax error in {parsed.name}: {e}")
+            raise ValueError(f"Template syntax error in {parsed.name}: {e}") from e
 
         # Clean up SQL (remove metadata comments, extra whitespace)
         sql = self._clean_sql(sql)

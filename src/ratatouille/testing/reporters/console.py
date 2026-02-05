@@ -1,11 +1,14 @@
 """Rich console reporter for test results."""
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.text import Text
+from typing import TYPE_CHECKING
 
-from ..models import TestOutput, TestSuiteResult, TestStatus, TestSeverity
+from rich.console import Console
+from rich.table import Table
+
+from ..models import TestOutput, TestSeverity, TestStatus, TestSuiteResult
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 class ConsoleReporter:
@@ -27,7 +30,9 @@ class ConsoleReporter:
     def report_start(self, workspace: str) -> None:
         """Report the start of test execution."""
         self.console.print()
-        self.console.print(f"[bold cyan]🐀 Running tests for workspace: {workspace}[/bold cyan]")
+        self.console.print(
+            f"[bold cyan]🐀 Running tests for workspace: {workspace}[/bold cyan]"
+        )
         self.console.print("[dim]" + "━" * 50 + "[/dim]")
         self.console.print()
 
@@ -84,7 +89,6 @@ class ConsoleReporter:
 
     def _print_data_table(self, df: "pd.DataFrame", max_rows: int = 5) -> None:
         """Print a DataFrame as a Rich table."""
-        import pandas as pd
 
         table = Table(show_header=True, header_style="bold", padding=(0, 1))
 
@@ -127,14 +131,18 @@ class ConsoleReporter:
         if skipped:
             parts.append(f"[dim]{skipped} skipped ⏭️[/dim]")
 
-        self.console.print(f"[bold]📊 Summary:[/bold] {' | '.join(parts)} | [dim]{duration}ms[/dim]")
+        self.console.print(
+            f"[bold]📊 Summary:[/bold] {' | '.join(parts)} | [dim]{duration}ms[/dim]"
+        )
         self.console.print()
 
         # Final status
         if failed == 0 and errored == 0:
             self.console.print("[bold green]All tests passed! 🎉[/bold green]")
         else:
-            self.console.print(f"[bold red]{failed + errored} test(s) failed[/bold red]")
+            self.console.print(
+                f"[bold red]{failed + errored} test(s) failed[/bold red]"
+            )
 
         self.console.print()
 

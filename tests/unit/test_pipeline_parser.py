@@ -1,7 +1,8 @@
 """🧪 Tests for SQL Pipeline Parser."""
 
 import pytest
-from ratatouille.pipeline.parser import SQLParser, ParsedPipeline
+
+from ratatouille.pipeline.parser import ParsedPipeline, SQLParser
 
 
 class TestSQLParser:
