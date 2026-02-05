@@ -1,19 +1,37 @@
 """📚 Catalog - Nessie + Iceberg integration.
 
-TODO: Implement Nessie REST client and Iceberg operations.
+Provides git-like versioning for data through:
+- NessieClient: Branch management (create, merge, delete)
+- IcebergCatalog: Branch-aware table operations via PyIceberg
 
-Planned features:
-- NessieClient: Branch management (create, merge, commit)
-- IcebergCatalog: Table operations via PyIceberg
-- Git-like versioning for data
+Example:
+    from ratatouille.catalog import NessieClient, IcebergCatalog
 
-For now, workspace isolation is handled by:
-- Nessie branches (configured in workspace.yaml)
-- S3 prefixes per workspace
+    # Branch operations
+    nessie = NessieClient("http://localhost:19120/api/v2")
+    nessie.create_branch("workspace/acme", from_branch="main")
+
+    # Table operations (branch-isolated)
+    catalog = IcebergCatalog.from_env(branch="workspace/acme")
+    catalog.create_table("bronze.sales", df)
 """
 
-# TODO: Implement when needed
-# from .nessie import NessieClient
-# from .iceberg import IcebergCatalog
+from .iceberg import IcebergCatalog
+from .nessie import (
+    BranchExistsError,
+    BranchInfo,
+    BranchNotFoundError,
+    NessieClient,
+    NessieError,
+    TableNotFoundError,
+)
 
-__all__: list[str] = []
+__all__ = [
+    "NessieClient",
+    "NessieError",
+    "BranchNotFoundError",
+    "BranchExistsError",
+    "TableNotFoundError",
+    "BranchInfo",
+    "IcebergCatalog",
+]

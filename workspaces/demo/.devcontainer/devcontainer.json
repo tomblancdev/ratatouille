@@ -37,7 +37,7 @@
     "NESSIE_URI": "http://host.docker.internal:19120/api/v2"
   },
 
-  "postStartCommand": "bash -c 'echo \"🐀 Workspace ready!\" && python -c \"from ratatouille import tools; tools.connections()\" 2>/dev/null || echo \"Run make up first!\"'",
+  "postStartCommand": "workspace-init",
 
   "remoteUser": "vscode"
 }

@@ -10,6 +10,7 @@
 |--------------|----------|
 | Build my first pipeline | [Getting Started](getting-started.md) |
 | Set up workspaces | [Workspaces](workspaces.md) |
+| Sync data branches with Git | [Git-Nessie Sync](git-nessie-sync.md) |
 | Write SQL pipelines | [SQL Pipelines (dbt-style)](pipelines-sql.md) |
 | Write Python pipelines | [Python Pipelines (Dagster)](pipelines-python.md) |
 | Schedule pipelines | [Triggers](triggers.md) |
@@ -50,6 +51,7 @@ See [Getting Started](getting-started.md) for the full tutorial.
 
 - **[Getting Started](getting-started.md)** - Build your first pipeline
 - **[Workspaces](workspaces.md)** - Organize projects and teams
+- **[Git-Nessie Sync](git-nessie-sync.md)** - Automatic data versioning with Git
 
 ### Building Pipelines
 

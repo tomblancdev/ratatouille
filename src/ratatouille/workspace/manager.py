@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from ratatouille.catalog.iceberg import IcebergCatalog
     from ratatouille.engine.duckdb import DuckDBEngine
     from ratatouille.resources.config import ResourceConfig
 
@@ -34,6 +35,7 @@ class Workspace:
         self.config = config
         self._engine: DuckDBEngine | None = None
         self._resources: ResourceConfig | None = None
+        self._catalog: IcebergCatalog | None = None
 
     @classmethod
     def load(cls, name_or_path: str | Path) -> Workspace:
@@ -64,16 +66,25 @@ class Workspace:
         name: str,
         base_dir: Path | str | None = None,
         description: str = "",
+        git_sync: bool = False,
     ) -> Workspace:
         """Create a new workspace with default structure.
 
         Args:
-            name: Workspace name (also used for Nessie branch and S3 prefix)
+            name: Workspace name (also used for S3 prefix)
             base_dir: Parent directory for workspaces (default: ./workspaces)
             description: Optional workspace description
+            git_sync: If True, use "auto" mode for Nessie branch (syncs with Git)
 
         Returns:
             Created Workspace instance
+
+        Example:
+            # Standard workspace with fixed branch
+            Workspace.create("acme")
+
+            # Git-synced workspace (branch follows Git)
+            Workspace.create("acme", git_sync=True)
         """
         if base_dir is None:
             base_dir = _get_workspaces_dir()
@@ -90,12 +101,18 @@ class Workspace:
         (workspace_dir / "macros").mkdir(parents=True, exist_ok=True)
         (workspace_dir / "notebooks").mkdir(parents=True, exist_ok=True)
 
+        # Determine Nessie branch configuration
+        if git_sync:
+            nessie_branch_config = "auto"
+        else:
+            nessie_branch_config = f"workspace/{name}"
+
         # Create config
         config = WorkspaceConfig(
             name=name,
             description=description,
             isolation={
-                "nessie_branch": f"workspace/{name}",
+                "nessie_branch": nessie_branch_config,
                 "s3_prefix": name,
             },
         )
@@ -105,12 +122,42 @@ class Workspace:
         for subdir in ["bronze", "silver", "gold"]:
             (workspace_dir / "pipelines" / subdir / ".gitkeep").touch()
 
+        # Create the workspace instance first (so nessie_branch property resolves correctly)
+        workspace = cls(path=workspace_dir, config=config)
+
+        # Resolve the actual branch name (handles "auto" mode)
+        actual_branch = workspace.nessie_branch
+
+        # Create Nessie branch for workspace isolation
+        nessie_uri = os.getenv("NESSIE_URI", "http://localhost:19120/api/v2")
+
+        try:
+            from ratatouille.catalog.nessie import BranchExistsError, NessieClient
+
+            nessie = NessieClient(nessie_uri)
+            try:
+                nessie.create_branch(actual_branch, from_branch="main")
+                print(f"🌳 Created Nessie branch: {actual_branch}")
+            except BranchExistsError:
+                print(f"🌳 Using existing Nessie branch: {actual_branch}")
+            except Exception as e:
+                # Nessie might not be available during testing/offline
+                print(f"⚠️ Could not create Nessie branch: {e}")
+            finally:
+                nessie.close()
+        except ImportError:
+            print("⚠️ Nessie client not available, skipping branch creation")
+
         print(f"✅ Created workspace: {name}")
         print(f"   Path: {workspace_dir}")
-        print(f"   Nessie branch: workspace/{name}")
+        if git_sync:
+            print(f"   Nessie branch: auto (currently: {actual_branch})")
+            print("   💡 Tip: Run install_git_hooks() to auto-create branches on checkout")
+        else:
+            print(f"   Nessie branch: {actual_branch}")
         print(f"   S3 prefix: {name}/")
 
-        return cls(path=workspace_dir, config=config)
+        return workspace
 
     @property
     def name(self) -> str:
@@ -119,8 +166,20 @@ class Workspace:
 
     @property
     def nessie_branch(self) -> str:
-        """Nessie branch for this workspace."""
-        return self.config.isolation.nessie_branch
+        """Nessie branch for this workspace.
+
+        Supports auto-detection from Git:
+        - "auto" or "git": Uses current Git branch
+        - "git:prefix/": Uses Git branch with prefix
+        - Any other value: Uses as-is (literal branch name)
+        """
+        from .git_sync import resolve_nessie_branch
+
+        return resolve_nessie_branch(
+            configured_branch=self.config.isolation.nessie_branch,
+            workspace_name=self.name,
+            repo_path=self.path,
+        )
 
     @property
     def s3_prefix(self) -> str:
@@ -177,6 +236,26 @@ class Workspace:
             self._engine = DuckDBEngine.for_workspace(self)
 
         return self._engine
+
+    def get_catalog(self) -> IcebergCatalog:
+        """Get Iceberg catalog for this workspace's branch.
+
+        The catalog is bound to this workspace's Nessie branch,
+        providing isolation for data operations.
+
+        Returns:
+            IcebergCatalog instance
+
+        Example:
+            catalog = workspace.get_catalog()
+            catalog.create_table("bronze.sales", df)
+        """
+        if self._catalog is None:
+            from ratatouille.catalog.iceberg import IcebergCatalog
+
+            self._catalog = IcebergCatalog.for_workspace(self)
+
+        return self._catalog
 
     def s3_path(self, layer: str, table: str) -> str:
         """Get the S3 path for a table in this workspace.

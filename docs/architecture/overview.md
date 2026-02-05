@@ -85,17 +85,22 @@ minio:
 - ✅ **Partition evolution** - Change partitioning without rewriting
 - ✅ **Hidden partitioning** - No partition columns in queries
 
-**Catalog:** SQLite-based catalog (no external service needed)
+**Catalog:** Nessie REST catalog (Git-like versioning for data)
 
 ```python
-# Iceberg catalog configuration
-catalog = SqlCatalog(
-    "ratatouille",
-    uri="sqlite:////app/workspaces/.iceberg/catalog.db",
-    warehouse="s3://warehouse/",
-    s3.endpoint="http://minio:9000",
-)
+# Iceberg catalog configuration via Nessie
+from pyiceberg.catalog import load_catalog
+
+catalog = load_catalog("nessie", **{
+    "type": "rest",
+    "uri": "http://nessie:19120/api/v2/iceberg",
+    "ref": "main",  # or "feature/branch" - syncs with Git!
+    "warehouse": "s3://warehouse/",
+    "s3.endpoint": "http://minio:9000",
+})
 ```
+
+> 📖 **See [Git-Nessie Sync](../guide/git-nessie-sync.md)** for automatic branch synchronization.
 
 **Table Structure:**
 ```

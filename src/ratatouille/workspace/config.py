@@ -10,9 +10,26 @@ from pydantic import BaseModel, Field
 
 
 class IsolationConfig(BaseModel):
-    """Workspace isolation settings."""
+    """Workspace isolation settings.
 
-    nessie_branch: str = Field(description="Dedicated Nessie branch for this workspace")
+    The nessie_branch field supports Git auto-sync:
+    - "auto" or "git": Automatically use current Git branch
+    - "git:prefix/": Use Git branch with prefix (e.g., "git:workspace/" → "workspace/main")
+    - Any other value: Use as literal branch name
+
+    Examples:
+        nessie_branch: "auto"              # Use current Git branch
+        nessie_branch: "git:workspace/"    # Git branch with prefix
+        nessie_branch: "workspace/acme"    # Literal branch name
+    """
+
+    nessie_branch: str = Field(
+        description=(
+            "Nessie branch for this workspace. "
+            "Use 'auto' or 'git' to sync with Git branch, "
+            "or 'git:prefix/' to add a prefix to Git branch name."
+        )
+    )
     s3_prefix: str = Field(
         description="S3 prefix for all workspace data (e.g., 'acme' -> s3://warehouse/acme/)"
     )
@@ -88,7 +105,12 @@ class WorkspaceConfig(BaseModel):
         description: "ACME Corp data workspace"
 
         isolation:
-          nessie_branch: "workspace/acme"
+          # Option 1: Auto-sync with Git branch
+          nessie_branch: "auto"
+          # Option 2: Git branch with prefix
+          # nessie_branch: "git:workspace/"
+          # Option 3: Literal branch name
+          # nessie_branch: "workspace/acme"
           s3_prefix: "acme"
 
         resources:

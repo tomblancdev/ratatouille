@@ -127,9 +127,19 @@ subscriptions:
 
 ```yaml
 isolation:
-  nessie_branch: "workspace/my-team"   # Catalog branch
+  # Option 1: Auto-sync with Git branch (recommended)
+  nessie_branch: "auto"
+
+  # Option 2: Git branch with prefix
+  # nessie_branch: "git:workspace/"
+
+  # Option 3: Fixed branch (no Git sync)
+  # nessie_branch: "workspace/my-team"
+
   s3_prefix: "my-team"                  # S3 path prefix
 ```
+
+> 📖 **See [Git-Nessie Sync](git-nessie-sync.md)** for automatic branch synchronization with Git.
 
 #### Resources
 

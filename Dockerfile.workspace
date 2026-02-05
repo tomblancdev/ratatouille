@@ -35,6 +35,10 @@ RUN pip install --no-cache-dir \
     jupyterlab \
     ipykernel
 
+# Copy workspace init script
+COPY scripts/workspace-init.sh /usr/local/bin/workspace-init
+RUN chmod +x /usr/local/bin/workspace-init
+
 # Set environment defaults
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -43,5 +47,6 @@ ENV PYTHONDONTWRITEBYTECODE=1
 USER vscode
 WORKDIR /workspace
 
-# Default command (overridden by devcontainer)
+# Default entrypoint runs init script, then user command
+ENTRYPOINT ["/bin/bash", "-c", "workspace-init && exec \"$@\"", "--"]
 CMD ["python"]

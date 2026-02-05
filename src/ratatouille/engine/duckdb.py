@@ -109,13 +109,14 @@ class DuckDBEngine:
         conn.execute("SET s3_use_ssl = false")
 
     def _setup_iceberg(self, conn: duckdb.DuckDBPyConnection) -> None:
-        """Configure Iceberg catalog via Nessie."""
-        # Note: DuckDB's Iceberg extension has limited Nessie support as of 2024
-        # We may need to use PyIceberg for full Nessie integration
-        # For now, we'll use the REST catalog approach
+        """Configure Iceberg extension for reads.
 
-        # This is a placeholder - actual Nessie integration requires
-        # either duckdb-iceberg improvements or using PyIceberg
+        DuckDB's iceberg extension reads metadata.json files directly.
+        We resolve metadata paths via NessieClient, not DuckDB's catalog.
+        The extension is already loaded in _setup_extensions().
+        """
+        # No additional setup needed - we use iceberg_scan() with
+        # explicit metadata paths resolved via NessieClient
         pass
 
     @classmethod
@@ -228,6 +229,101 @@ class DuckDBEngine:
         self.conn.unregister("_df_to_write")
 
         return path
+
+    # =========================================================================
+    # Iceberg Reads via Native DuckDB Extension
+    # =========================================================================
+
+    def read_iceberg(
+        self,
+        table: str,
+        branch: str | None = None,
+    ) -> pd.DataFrame:
+        """Read Iceberg table via native DuckDB iceberg_scan().
+
+        Uses NessieClient to resolve the metadata.json location,
+        then reads via DuckDB's fast Iceberg extension.
+
+        Args:
+            table: Table identifier (e.g., "bronze.sales")
+            branch: Nessie branch (default: engine's nessie_branch)
+
+        Returns:
+            DataFrame with table data
+
+        Example:
+            df = engine.read_iceberg("bronze.sales", branch="workspace/acme")
+        """
+        branch = branch or self.nessie_branch
+        metadata_path = self._resolve_iceberg_metadata(table, branch)
+        return self.query(f"SELECT * FROM iceberg_scan('{metadata_path}')")
+
+    def read_iceberg_arrow(
+        self,
+        table: str,
+        branch: str | None = None,
+    ) -> pa.Table:
+        """Read Iceberg table as Arrow (more memory efficient).
+
+        Args:
+            table: Table identifier
+            branch: Nessie branch
+
+        Returns:
+            PyArrow Table
+        """
+        branch = branch or self.nessie_branch
+        metadata_path = self._resolve_iceberg_metadata(table, branch)
+        return self.query_arrow(f"SELECT * FROM iceberg_scan('{metadata_path}')")
+
+    def iceberg_sql(
+        self,
+        table: str,
+        branch: str | None = None,
+    ) -> str:
+        """Get SQL fragment for Iceberg table (for use in pipelines).
+
+        Returns a string like "iceberg_scan('s3://...')" that can be
+        used in larger SQL queries.
+
+        Args:
+            table: Table identifier
+            branch: Nessie branch
+
+        Returns:
+            SQL fragment for iceberg_scan()
+
+        Example:
+            sql_frag = engine.iceberg_sql("bronze.sales")
+            df = engine.query(f"SELECT * FROM {sql_frag} WHERE amount > 100")
+        """
+        branch = branch or self.nessie_branch
+        metadata_path = self._resolve_iceberg_metadata(table, branch)
+        return f"iceberg_scan('{metadata_path}')"
+
+    def _resolve_iceberg_metadata(self, table: str, branch: str) -> str:
+        """Resolve Iceberg table to metadata.json path via Nessie.
+
+        Args:
+            table: Table identifier
+            branch: Nessie branch
+
+        Returns:
+            S3 path to metadata.json
+        """
+        if not self.nessie_uri:
+            raise ValueError(
+                "Nessie URI not configured. "
+                "Set nessie_uri in DuckDBEngine or NESSIE_URI env var."
+            )
+
+        from ratatouille.catalog.nessie import NessieClient
+
+        nessie = NessieClient(self.nessie_uri)
+        try:
+            return nessie.get_table_metadata_location(table, branch)
+        finally:
+            nessie.close()
 
     @contextmanager
     def transaction(self):

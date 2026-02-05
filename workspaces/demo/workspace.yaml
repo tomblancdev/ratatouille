@@ -11,7 +11,7 @@ description: |
 
 # Isolation settings
 isolation:
-  nessie_branch: "workspace/demo"
+  nessie_branch: "auto"  # Syncs with Git branch automatically
   s3_prefix: "demo"
 
 # Resource configuration

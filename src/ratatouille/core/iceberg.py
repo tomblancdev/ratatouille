@@ -1,78 +1,98 @@
-"""🐀 Iceberg utilities - Lakehouse table format with SQLite catalog.
+"""🐀 Iceberg utilities - Lakehouse table format with Nessie REST catalog.
 
-Uses PyIceberg with SQLite for metadata storage and MinIO for data files.
-No external catalog service needed!
+Uses PyIceberg with Nessie for git-like versioning and MinIO for data files.
+Branch-aware operations enable workspace isolation.
 """
 
+from __future__ import annotations
+
 import os
-from functools import lru_cache
-from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
-from pyiceberg.catalog.sql import SqlCatalog
+from pyiceberg.catalog import load_catalog
+
+# Branch-aware catalog cache: {branch: catalog_instance}
+_catalog_cache: dict[str, Any] = {}
 
 
 def _fix_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
     """Convert nanosecond timestamps to microseconds for Iceberg compatibility."""
     for col in df.columns:
         if pd.api.types.is_datetime64_any_dtype(df[col]):
-            # Convert ns to us precision
             df[col] = df[col].astype("datetime64[us]")
     return df
 
 
-@lru_cache
-def get_catalog():
-    """Get the Iceberg catalog (cached singleton).
+def _require_env(name: str) -> str:
+    """Get required environment variable."""
+    value = os.getenv(name)
+    if not value:
+        raise OSError(
+            f"Missing required environment variable: {name}\n"
+            f"Make sure you have a .env file. See .env.example for reference."
+        )
+    return value
 
-    Uses SQLite for metadata (lightweight, no extra service).
-    Data files stored in MinIO.
+
+def get_catalog(branch: str = "main"):
+    """Get the Iceberg catalog for a specific branch (cached per branch).
+
+    Uses Nessie REST catalog for git-like versioning.
+
+    Args:
+        branch: Nessie branch name (default: "main")
+
+    Returns:
+        PyIceberg RestCatalog instance
+
+    Example:
+        catalog = get_catalog("workspace/acme")
+        tables = catalog.list_tables("bronze")
     """
-    # SQLite catalog stored in workspaces directory (mounted volume)
-    catalog_path = os.getenv("ICEBERG_CATALOG_PATH", "/app/workspaces/.iceberg")
+    if branch in _catalog_cache:
+        return _catalog_cache[branch]
 
-    # Create directory with proper error handling
-    try:
-        Path(catalog_path).mkdir(parents=True, exist_ok=True)
-    except PermissionError:
-        # Fallback to home directory if /app is not writable
-        import tempfile
-
-        catalog_path = os.path.join(tempfile.gettempdir(), "ratatouille-iceberg")
-        Path(catalog_path).mkdir(parents=True, exist_ok=True)
-        print(f"⚠️ Using fallback catalog path: {catalog_path}")
-
-    def _require_env(name: str) -> str:
-        value = os.getenv(name)
-        if not value:
-            raise OSError(
-                f"Missing required environment variable: {name}\n"
-                f"Make sure you have a .env file. See .env.example for reference."
-            )
-        return value
-
+    # Get configuration from environment
+    nessie_uri = os.getenv("NESSIE_URI", "http://localhost:19120/api/v2")
     warehouse_path = os.getenv("ICEBERG_WAREHOUSE", "s3://warehouse/")
     s3_endpoint = _require_env("S3_ENDPOINT")
     s3_access_key = _require_env("S3_ACCESS_KEY")
     s3_secret_key = _require_env("S3_SECRET_KEY")
 
-    return SqlCatalog(
-        "ratatouille",
+    # Create RestCatalog pointing to Nessie
+    catalog = load_catalog(
+        "nessie",
         **{
-            "uri": f"sqlite:///{catalog_path}/catalog.db",
+            "type": "rest",
+            "uri": f"{nessie_uri.rstrip('/')}/iceberg",
+            "ref": branch,
             "warehouse": warehouse_path,
             "s3.endpoint": s3_endpoint,
             "s3.access-key-id": s3_access_key,
             "s3.secret-access-key": s3_secret_key,
-            "s3.path-style-access": "true",  # Required for MinIO
+            "s3.path-style-access": "true",
         },
     )
 
+    _catalog_cache[branch] = catalog
+    return catalog
 
-def ensure_namespace(namespace: str) -> None:
-    """Create namespace if it doesn't exist."""
-    catalog = get_catalog()
+
+def clear_catalog_cache() -> None:
+    """Clear the catalog cache (useful for testing)."""
+    _catalog_cache.clear()
+
+
+def ensure_namespace(namespace: str, branch: str = "main") -> None:
+    """Create namespace if it doesn't exist.
+
+    Args:
+        namespace: Namespace name
+        branch: Nessie branch
+    """
+    catalog = get_catalog(branch)
     try:
         catalog.create_namespace(namespace)
         print(f"📁 Created namespace: {namespace}")
@@ -84,6 +104,7 @@ def create_table(
     name: str,
     df: pd.DataFrame,
     partition_by: list[str] | None = None,
+    branch: str = "main",
 ) -> str:
     """Create an Iceberg table from a DataFrame.
 
@@ -91,6 +112,7 @@ def create_table(
         name: Table name (e.g., "bronze.transactions")
         df: DataFrame to create table from
         partition_by: Optional partition columns
+        branch: Nessie branch for the operation
 
     Returns:
         Full table identifier
@@ -98,11 +120,11 @@ def create_table(
     Example:
         create_table("bronze.sales", df, partition_by=["year", "month"])
     """
-    catalog = get_catalog()
+    catalog = get_catalog(branch)
 
     # Ensure namespace exists
     namespace = name.split(".")[0] if "." in name else "default"
-    ensure_namespace(namespace)
+    ensure_namespace(namespace, branch)
 
     # Fix timestamp precision (ns → us) for Iceberg compatibility
     df = _fix_timestamp_precision(df)
@@ -120,24 +142,25 @@ def create_table(
     table = catalog.create_table(name, schema=arrow_table.schema)
     table.append(arrow_table)
 
-    print(f"✅ Created table: {name} ({len(df)} rows)")
+    print(f"✅ Created table: {name} ({len(df)} rows) on branch '{branch}'")
     return name
 
 
-def append(name: str, df: pd.DataFrame) -> int:
+def append(name: str, df: pd.DataFrame, branch: str = "main") -> int:
     """Append data to an existing Iceberg table.
 
     Args:
         name: Table name (e.g., "bronze.transactions")
         df: DataFrame to append
+        branch: Nessie branch
 
     Returns:
         Number of rows appended
 
     Example:
-        append("bronze.transactions", new_df)
+        append("bronze.transactions", new_df, branch="workspace/acme")
     """
-    catalog = get_catalog()
+    catalog = get_catalog(branch)
     table = catalog.load_table(name)
 
     # Fix timestamp precision (ns → us) for Iceberg compatibility
@@ -153,6 +176,7 @@ def merge(
     name: str,
     df: pd.DataFrame,
     merge_keys: list[str],
+    branch: str = "main",
 ) -> dict:
     """Merge (upsert) data into an Iceberg table.
 
@@ -162,14 +186,15 @@ def merge(
         name: Table name
         df: DataFrame with new/updated records
         merge_keys: Columns that form unique key
+        branch: Nessie branch
 
     Returns:
         Dict with stats: {"inserted": n, "updated": n}
 
     Example:
-        merge("silver.transactions", df, merge_keys=["date", "store_id", "product_id"])
+        merge("silver.transactions", df, merge_keys=["date", "store_id"], branch="main")
     """
-    catalog = get_catalog()
+    catalog = get_catalog(branch)
 
     # Fix timestamp precision (ns → us) for Iceberg compatibility
     df = _fix_timestamp_precision(df)
@@ -194,62 +219,78 @@ def merge(
 
     except Exception:
         # Table doesn't exist, create it
-        create_table(name, df)
+        create_table(name, df, branch=branch)
         inserted = len(df)
         updated = 0
 
     return {"inserted": max(0, inserted), "updated": max(0, updated)}
 
 
-def read_table(name: str, where: str | None = None) -> pd.DataFrame:
+def read_table(name: str, branch: str = "main") -> pd.DataFrame:
     """Read an Iceberg table into a DataFrame.
 
     Args:
         name: Table name
-        where: Optional filter expression (not implemented yet)
+        branch: Nessie branch to read from
 
     Returns:
         DataFrame with table data
 
     Example:
-        df = read_table("silver.transactions")
+        df = read_table("silver.transactions", branch="workspace/acme")
     """
-    catalog = get_catalog()
+    catalog = get_catalog(branch)
     table = catalog.load_table(name)
 
     scan = table.scan()
     return scan.to_pandas()
 
 
-def list_tables(namespace: str = "bronze") -> list[str]:
-    """List all tables in a namespace."""
-    catalog = get_catalog()
+def list_tables(namespace: str = "bronze", branch: str = "main") -> list[str]:
+    """List all tables in a namespace.
+
+    Args:
+        namespace: Namespace to list
+        branch: Nessie branch
+
+    Returns:
+        List of table names
+    """
+    catalog = get_catalog(branch)
     try:
-        ensure_namespace(namespace)
+        ensure_namespace(namespace, branch)
         return [t[1] for t in catalog.list_tables(namespace)]
     except Exception:
         return []
 
 
-def list_namespaces() -> list[str]:
-    """List all namespaces (bronze, silver, gold, etc.)."""
-    catalog = get_catalog()
+def list_namespaces(branch: str = "main") -> list[str]:
+    """List all namespaces (bronze, silver, gold, etc.).
+
+    Args:
+        branch: Nessie branch
+
+    Returns:
+        List of namespace names
+    """
+    catalog = get_catalog(branch)
     try:
         return [ns[0] for ns in catalog.list_namespaces()]
     except Exception:
         return []
 
 
-def table_history(name: str) -> pd.DataFrame:
+def table_history(name: str, branch: str = "main") -> pd.DataFrame:
     """Get table snapshot history (time travel metadata).
 
     Args:
         name: Table name
+        branch: Nessie branch
 
     Returns:
         DataFrame with snapshot info
     """
-    catalog = get_catalog()
+    catalog = get_catalog(branch)
     table = catalog.load_table(name)
 
     snapshots = []
@@ -265,294 +306,68 @@ def table_history(name: str) -> pd.DataFrame:
     return pd.DataFrame(snapshots)
 
 
-def read_snapshot(name: str, snapshot_id: int) -> pd.DataFrame:
+def read_snapshot(name: str, snapshot_id: int, branch: str = "main") -> pd.DataFrame:
     """Read table at a specific snapshot (time travel).
 
     Args:
         name: Table name
         snapshot_id: Snapshot ID from table_history()
+        branch: Nessie branch
 
     Returns:
         DataFrame at that point in time
     """
-    catalog = get_catalog()
+    catalog = get_catalog(branch)
     table = catalog.load_table(name)
 
     return table.scan(snapshot_id=snapshot_id).to_pandas()
 
 
-# =========================================================================
-# Iceberg Branch Operations (Dev Mode)
-# =========================================================================
-
-
-def create_branch(table: str, branch_name: str) -> str:
-    """Create a new branch from current snapshot.
-
-    Branches are metadata-only - no data is copied until you write.
-    Uses Iceberg's native branching for zero-copy isolation.
+def overwrite(name: str, df: pd.DataFrame, branch: str = "main") -> int:
+    """Overwrite all data in a table.
 
     Args:
-        table: Table name (e.g., "bronze.sales")
-        branch_name: Name for the new branch
-
-    Returns:
-        The branch name
-
-    Raises:
-        ValueError: If table has no snapshots yet
-
-    Example:
-        create_branch("bronze.sales", "feature/new-cleaning")
-    """
-    catalog = get_catalog()
-    ice_table = catalog.load_table(table)
-
-    # Get current snapshot ID
-    current = ice_table.current_snapshot()
-    if current is None:
-        raise ValueError(f"Table {table} has no snapshots yet")
-
-    # Create branch pointing to current snapshot
-    ice_table.manage_snapshots().create_branch(
-        snapshot_id=current.snapshot_id, branch_name=branch_name
-    ).commit()
-
-    return branch_name
-
-
-def list_branches(table: str) -> list[dict]:
-    """List all branches for a table.
-
-    Args:
-        table: Table name
-
-    Returns:
-        List of dicts with branch info: [{"name": "main", "type": "branch"}, ...]
-
-    Example:
-        branches = list_branches("bronze.sales")
-        # → [{"name": "main", "type": "branch"}, {"name": "dev/feature", "type": "branch"}]
-    """
-    catalog = get_catalog()
-    ice_table = catalog.load_table(table)
-
-    branches = []
-    for ref_name, ref in ice_table.metadata.refs.items():
-        branches.append(
-            {
-                "name": ref_name,
-                "type": ref.snapshot_ref_type,
-                "snapshot_id": ref.snapshot_id,
-            }
-        )
-
-    return branches
-
-
-def drop_branch(table: str, branch_name: str) -> None:
-    """Delete a branch.
-
-    Cannot delete the main branch.
-
-    Args:
-        table: Table name
-        branch_name: Branch to delete
-
-    Raises:
-        ValueError: If trying to delete main branch
-
-    Example:
-        drop_branch("bronze.sales", "feature/abandoned")
-    """
-    if branch_name == "main":
-        raise ValueError("Cannot delete main branch")
-
-    catalog = get_catalog()
-    ice_table = catalog.load_table(table)
-    ice_table.manage_snapshots().remove_branch(branch_name).commit()
-
-
-def read_branch(table: str, branch_name: str) -> pd.DataFrame:
-    """Read table at a specific branch.
-
-    Args:
-        table: Table name
-        branch_name: Branch to read from
-
-    Returns:
-        DataFrame with table data at that branch
-
-    Example:
-        df = read_branch("bronze.sales", "feature/new-cleaning")
-    """
-    catalog = get_catalog()
-    ice_table = catalog.load_table(table)
-
-    # Get snapshot ID from branch reference
-    refs = ice_table.metadata.refs
-    if branch_name not in refs:
-        raise ValueError(f"Branch '{branch_name}' not found in table {table}")
-
-    snapshot_id = refs[branch_name].snapshot_id
-    return ice_table.scan(snapshot_id=snapshot_id).to_pandas()
-
-
-def append_to_branch(table: str, df: pd.DataFrame, branch_name: str) -> int:
-    """Append data to a specific branch.
-
-    Uses copy-on-write - only the new data is written, existing data
-    is shared with other branches.
-
-    Args:
-        table: Table name
-        df: DataFrame to append
-        branch_name: Branch to append to
-
-    Returns:
-        Number of rows appended
-
-    Example:
-        append_to_branch("bronze.sales", df, "feature/new-data")
-    """
-    catalog = get_catalog()
-    ice_table = catalog.load_table(table)
-
-    # Fix timestamp precision (ns → us) for Iceberg compatibility
-    df = _fix_timestamp_precision(df)
-
-    arrow_table = pa.Table.from_pandas(df)
-    ice_table.append(arrow_table, branch=branch_name)
-
-    return len(df)
-
-
-def overwrite_branch(table: str, df: pd.DataFrame, branch_name: str) -> int:
-    """Overwrite data on a specific branch.
-
-    Replaces all data on the branch. Other branches are not affected.
-
-    Args:
-        table: Table name
+        name: Table name
         df: DataFrame to write
-        branch_name: Branch to overwrite
+        branch: Nessie branch
 
     Returns:
         Number of rows written
-
-    Example:
-        overwrite_branch("silver.sales", df, "feature/new-cleaning")
     """
-    catalog = get_catalog()
-    ice_table = catalog.load_table(table)
+    catalog = get_catalog(branch)
+    table = catalog.load_table(name)
 
-    # Fix timestamp precision (ns → us) for Iceberg compatibility
     df = _fix_timestamp_precision(df)
-
     arrow_table = pa.Table.from_pandas(df)
-    ice_table.overwrite(arrow_table, branch=branch_name)
+    table.overwrite(arrow_table)
 
     return len(df)
 
 
-def merge_to_branch(
-    table: str,
-    df: pd.DataFrame,
-    merge_keys: list[str],
-    branch_name: str,
-) -> dict:
-    """Merge (upsert) data into a specific branch.
-
-    Deduplicates by merge_keys, keeping the latest record.
+def drop_table(name: str, branch: str = "main") -> None:
+    """Drop a table.
 
     Args:
-        table: Table name
-        df: DataFrame with new/updated records
-        merge_keys: Columns that form unique key
-        branch_name: Branch to merge into
+        name: Table name
+        branch: Nessie branch
+    """
+    catalog = get_catalog(branch)
+    catalog.drop_table(name)
+
+
+def table_exists(name: str, branch: str = "main") -> bool:
+    """Check if a table exists.
+
+    Args:
+        name: Table name
+        branch: Nessie branch
 
     Returns:
-        Dict with stats: {"inserted": n, "updated": n}
-
-    Example:
-        stats = merge_to_branch("silver.sales", df, ["id"], "feature/updates")
+        True if table exists
     """
-    catalog = get_catalog()
-
-    # Fix timestamp precision (ns → us) for Iceberg compatibility
-    df = _fix_timestamp_precision(df)
-
+    catalog = get_catalog(branch)
     try:
-        ice_table = catalog.load_table(table)
-
-        # Read existing data from branch
-        existing_df = ice_table.scan(branch=branch_name).to_pandas()
-
-        # Combine and dedupe
-        combined = pd.concat([existing_df, df], ignore_index=True)
-        combined = combined.drop_duplicates(subset=merge_keys, keep="last")
-
-        # Fix timestamps again after concat
-        combined = _fix_timestamp_precision(combined)
-
-        # Overwrite on branch
-        arrow_table = pa.Table.from_pandas(combined)
-        ice_table.overwrite(arrow_table, branch=branch_name)
-
-        inserted = len(combined) - len(existing_df)
-        updated = len(df) - inserted
-
+        catalog.load_table(name)
+        return True
     except Exception:
-        # Table doesn't exist, create it
-        create_table(table, df)
-        # Then create the branch
-        create_branch(table, branch_name)
-        inserted = len(df)
-        updated = 0
-
-    return {"inserted": max(0, inserted), "updated": max(0, updated)}
-
-
-def fast_forward_branch(table: str, source: str, target: str = "main") -> dict:
-    """Merge source branch to target by copying data.
-
-    Reads the data from the source branch and overwrites the target branch.
-    This effectively merges the changes from source to target.
-
-    Args:
-        table: Table name
-        source: Source branch name
-        target: Target branch name (default: "main")
-
-    Returns:
-        Dict with merge info
-
-    Raises:
-        ValueError: If source and target are the same
-
-    Example:
-        fast_forward_branch("bronze.sales", "feature/done", "main")
-    """
-    if source == target:
-        raise ValueError("Cannot merge branch into itself")
-
-    catalog = get_catalog()
-    ice_table = catalog.load_table(table)
-
-    # Get snapshot ID from source branch
-    refs = ice_table.metadata.refs
-    if source not in refs:
-        raise ValueError(f"Branch '{source}' not found in table {table}")
-
-    # Read data from source branch
-    source_snapshot_id = refs[source].snapshot_id
-    source_df = ice_table.scan(snapshot_id=source_snapshot_id).to_pandas()
-
-    # Fix timestamp precision
-    source_df = _fix_timestamp_precision(source_df)
-
-    # Overwrite target branch with source data
-    arrow_table = pa.Table.from_pandas(source_df)
-    ice_table.overwrite(arrow_table, branch=target)
-
-    return {"merged": source, "into": target, "table": table, "rows": len(source_df)}
+        return False
